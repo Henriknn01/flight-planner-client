@@ -98,6 +98,7 @@ class MainWidget(QWidget):
 
     def showFileDialog(self):
         self.file_dialog = QFileDialog(self)
+        self.file_dialog.setNameFilters(["OBJ files(*.obj)"])
         self.file_dialog.setFileMode(QFileDialog.AnyFile)
         if self.file_dialog.exec_() == QFileDialog.Accepted:
             file_name = self.file_dialog.selectedFiles()[0]
