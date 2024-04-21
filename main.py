@@ -1,57 +1,43 @@
-import os
 import sys
-from pathlib import Path
 
+import pyvista
 from PySide6.QtCore import QCoreApplication, QUrl, QObject, Slot, QStringEncoder, Qt
-from PySide6.QtGui import QGuiApplication, QFont
-from PySide6.QtQuick import QQuickView
-from PySide6.QtDataVisualization import qDefaultSurfaceFormat
-from PySide6.QtWidgets import QWidget, QListView, QVBoxLayout, QSlider, QPushButton, QFileDialog, QApplication, QLabel, QHBoxLayout
+from PySide6.QtGui import QGuiApplication, QFont, QAction
+from PySide6.QtWidgets import QWidget, QCheckBox, QToolBar, QListView, QVBoxLayout, QPushButton, QFileDialog, QApplication, QLabel, QHBoxLayout
+from PySide6 import QtWidgets
 from superqt import QLabeledRangeSlider, QLabeledSlider
+import pyvista as pv
+from pyvistaqt import BackgroundPlotter, QtInteractor, MainWindow
+from typing import Any
+import simple_path
+
 
 SOFTWARE_VERSION = "1.0.0"
 
-
-class SettingSection(QWidget):
-    def __init__(self, name: str):
-        super().__init__()
-        self.sectionVisible = True
-
-        self.layout = QVBoxLayout(self)
-
-        self.toggleSection = QPushButton(name, self)
-        self.toggleSection.clicked.connect(self.toggleSectionFunc)
-        self.layout.addWidget(self.toggleSection)
-
-        self.sectionParentWidget = QWidget(self)
-        self.sectionWidgets = QVBoxLayout(self.sectionParentWidget)
-        self.layout.addWidget(self.sectionParentWidget)
-
-        self.initSectionHeight = self.sectionParentWidget.height() + 10
-
-    def addWidget(self, widget: QWidget):
-        self.sectionWidgets.addWidget(widget)
-        self.initSectionHeight += widget.height()
-
-    def toggleSectionFunc(self):
-        if self.sectionVisible:
-            self.sectionParentWidget.setFixedHeight(0)
-            self.sectionVisible = False
-        else:
-            self.sectionParentWidget.setFixedHeight(self.initSectionHeight)
-            self.sectionVisible = True
-
-
-class MainWidget(QWidget):
-    def __init__(self):
+class MainPanelWidget(QWidget):
+    def __init__(self, plotter):
         super().__init__()
 
         self.layout = QVBoxLayout(self)
+
+        self.plotter = plotter
 
         self.title = QLabel(self)
-        self.title.setText("Flight path generator v"+ SOFTWARE_VERSION)
+        self.title.setText("Flight path generator")
         self.title.setFont(QFont('Arial', 24, QFont.Bold))
         self.layout.addWidget(self.title)
+
+        # settings section
+        self.label_settings = QLabel(self)
+        self.label_settings.setText("Display settings")
+        self.layout.addWidget(self.label_settings)
+        hbox_layout = QHBoxLayout()
+        # Add toggle show bounds option
+        self.show_bounds_checkbox = QCheckBox("Show Bounds", self)
+        self.show_bounds_checkbox.setChecked(False)
+        self.show_bounds_checkbox.stateChanged.connect(self.toggle_show_bounds)
+        hbox_layout.addWidget(self.show_bounds_checkbox)
+        self.layout.addLayout(hbox_layout)
 
         self.file_label = QLabel(self)
         self.file_label.setText("Select file")
@@ -92,9 +78,17 @@ class MainWidget(QWidget):
         self.layout.addWidget(self.range_slider_two)
 
         self.submit_btn = QPushButton('Generate', self)
+        self.submit_btn.clicked.connect(self.generate)
         self.layout.addWidget(self.submit_btn)
 
         self.setLayout(self.layout)
+
+
+    def toggle_show_bounds(self):
+        if self.show_bounds_checkbox.isChecked():
+            self.plotter.show_bounds()
+        else:
+            self.plotter.remove_bounds_axes()
 
     def showFileDialog(self):
         self.file_dialog = QFileDialog(self)
@@ -103,14 +97,67 @@ class MainWidget(QWidget):
         if self.file_dialog.exec_() == QFileDialog.Accepted:
             file_name = self.file_dialog.selectedFiles()[0]
             self.file_label.setText(file_name.split("/")[-1])
-            print("Selected file: ", file_name)
+            self.plotter.clear_actors()
+            hull = pyvista.read(file_name)
+            # self.plotter.add_mesh(hull, cmap="terrain", lighting=True, smooth_shading=True, split_sharp_edges=True)
+            self.plotter.add_mesh_clip_box(hull, cmap="terrain", lighting=True)
+            self.plotter.reset_camera()
+
+    def generate(self):
+        path = simple_path.SimplePath(self.plotter.box_clipped_meshes[0])
+        path.generate_path()
+
+class ApplicationMainWindow(MainWindow):
+    def __init__(self, parent=None, show=True):
+        QtWidgets.QMainWindow.__init__(self, parent)
+
+        self.setWindowTitle("Flight path generator v"+SOFTWARE_VERSION)
+
+        # create the frame
+        self.frame = QtWidgets.QFrame()
+        layout = QtWidgets.QHBoxLayout()
+
+        # add the pyvista interactor object
+        self.plotter = QtInteractor(self.frame)
+        self.plotter.show_axes()
+        layout.addWidget(self.plotter.interactor)
+        self.signal_close.connect(self.plotter.close)
+
+        self.mainPanelWidgetInstance = MainPanelWidget(self.plotter)
+        self.mainPanelWidgetInstance.setMaximumWidth(int(self.width()*0.66))
+        layout.addWidget(self.mainPanelWidgetInstance)
+
+        self.frame.setLayout(layout)
+        self.setCentralWidget(self.frame)
+
+        # simple menu to demo functions
+        mainMenu = self.menuBar()
+        fileMenu = mainMenu.addMenu('File')
+        exitButton = QAction('Exit', self)
+        exitButton.setShortcut('Ctrl+Q')
+        exitButton.triggered.connect(self.close)
+        fileMenu.addAction(exitButton)
+
+        # allow adding a sphere
+        meshMenu = mainMenu.addMenu('Mesh')
+        self.add_sphere_action = QAction('Add Sphere', self)
+        self.add_sphere_action.triggered.connect(self.add_sphere)
+        meshMenu.addAction(self.add_sphere_action)
+
+        if show:
+            self.show()
+
+    def add_sphere(self):
+        """ add a sphere to the pyqt frame """
+        sphere = pv.Sphere()
+        self.plotter.add_mesh(sphere, show_edges=True)
+        self.plotter.reset_camera()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    widget = MainWidget()
-    widget.resize(400, 600)
-    widget.setWindowTitle("Flight path generator v"+SOFTWARE_VERSION)
-    widget.show()
+    window = ApplicationMainWindow()
+    window.showMaximized()
+
     ex = app.exec()
     sys.exit(ex)
