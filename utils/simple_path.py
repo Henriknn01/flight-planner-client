@@ -1,6 +1,4 @@
 import pyvista
-
-
 """
 The simple path algo is a test algorithm developed while waiting for the final version of the more complex algorithm.
 The algorithm slices the given mesh in the z axis with a given amount of slices along the z axis.
@@ -9,7 +7,9 @@ The points will have an offset from the path of the slices along the z axis by a
 This offset will act as the distance between the drone and the hull of the ship its scanning.
 Each point represents a picture being taken of the ship hull.
 """
-class SimplePath():
+
+
+class SimplePath:
     def __init__(self, mesh):
         super().__init__()
         self.path_offset = 1
