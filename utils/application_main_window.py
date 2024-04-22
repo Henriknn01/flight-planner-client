@@ -6,6 +6,24 @@ from widgets.main_panel import MainPanelWidget
 
 SOFTWARE_VERSION = "1.0.0"
 
+class InteractorWidget(QtWidgets.QWidget):
+    def __init__(self, plotter, top_text=None):
+        super().__init__()
+        self.layout = QtWidgets.QVBoxLayout()
+        self.plotter = plotter
+
+        if top_text:
+            self.plotter.add_text(top_text)
+
+        self.plotter.show_axes()
+
+        self.layout.addWidget(self.plotter.main_menu)
+        self.layout.addWidget(self.plotter.default_camera_tool_bar)
+        self.layout.addWidget(self.plotter.interactor)
+
+        self.setLayout(self.layout)
+
+
 class ApplicationMainWindow(MainWindow):
     def __init__(self, parent=None, show=True):
         QtWidgets.QMainWindow.__init__(self, parent)
@@ -16,14 +34,14 @@ class ApplicationMainWindow(MainWindow):
         self.frame = QtWidgets.QFrame()
         layout = QtWidgets.QHBoxLayout()
 
-        # add the pyvista interactor object
-        self.plotter = MultiPlotter(ncols=2)  # QtInteractor(self.frame)
-        self.plotter[0, 0].add_text("Model preview - select scan section")
-        self.plotter[0, 0].show_axes()
-        layout.addWidget(self.plotter[0, 0].interactor)
-        self.plotter[0, 1].add_text("Generated Flight Path")
-        self.plotter[0, 1].show_axes()
-        layout.addWidget(self.plotter[0, 1].interactor)
+        self.plotter = MultiPlotter(ncols=2, show=False)  # QtInteractor(self.frame)
+
+        self.plot1 = InteractorWidget(self.plotter[0, 0], "Model preview - select scan section")
+        layout.addWidget(self.plot1)
+
+        self.plot2 = InteractorWidget(self.plotter[0, 1], "Generated Flight Path")
+        layout.addWidget(self.plot2)
+
         self.signal_close.connect(self.plotter.close)
 
         self.mainPanelWidgetInstance = MainPanelWidget(self.plotter)
