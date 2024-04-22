@@ -12,7 +12,6 @@ Each point represents a picture being taken of the ship hull.
 class SimplePath:
     def __init__(self, mesh):
         super().__init__()
-        self.path_offset = 1
         self.line_width = 4
         self.mesh = mesh
 
