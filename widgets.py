@@ -6,6 +6,24 @@ from superqt import QLabeledRangeSlider, QLabeledSlider
 from utils import simple_path
 
 
+class InteractorWidget(QWidget):
+    def __init__(self, plotter, top_text=None):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.plotter = plotter
+
+        if top_text:
+            self.plotter.add_text(top_text)
+
+        self.plotter.show_axes()
+
+        self.layout.addWidget(self.plotter.main_menu)
+        self.layout.addWidget(self.plotter.default_camera_tool_bar)
+        self.layout.addWidget(self.plotter.interactor)
+
+        self.setLayout(self.layout)
+
+
 class MainPanelWidget(QWidget):
     def __init__(self, plotter):
         super().__init__()
@@ -73,11 +91,11 @@ class MainPanelWidget(QWidget):
 
         self.labeled_slider2 = QLabeledSlider(self)
         self.layout.addWidget(self.labeled_slider2)
-        
+
         self.label_rangeSlider1 = QLabel(self)
         self.label_rangeSlider1.setText("Altitude Range")
         self.layout.addWidget(self.label_rangeSlider1)
-        
+
         self.range_slider_one = QLabeledRangeSlider(Qt.Horizontal, self)
         self.range_slider_one.setRange(0, 10)
         self.range_slider_one.setValue([2, 8])
@@ -97,7 +115,6 @@ class MainPanelWidget(QWidget):
         self.layout.addWidget(self.submit_btn)
 
         self.setLayout(self.layout)
-
 
     def toggle_show_bounds(self):
         if self.show_bounds_checkbox.isChecked():
@@ -122,4 +139,5 @@ class MainPanelWidget(QWidget):
 
     def generate(self):
         path = simple_path.SimplePath(self.plotter[0, 0].box_clipped_meshes[0])
-        path.generate_path(self.plotter[0, 1], n_h_slices=self.labeled_slider_h_slices.value(), n_v_slices=self.labeled_slider_v_slices.value())
+        path.generate_path(self.plotter[0, 1], n_h_slices=self.labeled_slider_h_slices.value(),
+                           n_v_slices=self.labeled_slider_v_slices.value())

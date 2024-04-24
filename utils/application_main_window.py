@@ -2,26 +2,10 @@ from PySide6.QtGui import QAction
 from PySide6 import QtWidgets
 import pyvista as pv
 from pyvistaqt import QtInteractor, MainWindow, MultiPlotter
-from widgets.main_panel import MainPanelWidget
+
+from widgets import InteractorWidget, MainPanelWidget
 
 SOFTWARE_VERSION = "1.0.0"
-
-class InteractorWidget(QtWidgets.QWidget):
-    def __init__(self, plotter, top_text=None):
-        super().__init__()
-        self.layout = QtWidgets.QVBoxLayout()
-        self.plotter = plotter
-
-        if top_text:
-            self.plotter.add_text(top_text)
-
-        self.plotter.show_axes()
-
-        self.layout.addWidget(self.plotter.main_menu)
-        self.layout.addWidget(self.plotter.default_camera_tool_bar)
-        self.layout.addWidget(self.plotter.interactor)
-
-        self.setLayout(self.layout)
 
 
 class ApplicationMainWindow(MainWindow):
@@ -35,7 +19,6 @@ class ApplicationMainWindow(MainWindow):
         layout = QtWidgets.QHBoxLayout()
 
         self.plotter = MultiPlotter(ncols=2, show=False)  # QtInteractor(self.frame)
-
         self.plot1 = InteractorWidget(self.plotter[0, 0], "Model preview - select scan section")
         layout.addWidget(self.plot1)
 
