@@ -10,6 +10,8 @@ class InteractorWidget(QWidget):
     def __init__(self, plotter, top_text=None):
         super().__init__()
         self.layout = QVBoxLayout()
+
+        # The class assumes that the plotter is a multi plotter with 2 cols
         self.plotter = plotter
 
         if top_text:
