@@ -50,7 +50,7 @@ export_cameras_to_file(tsp_path_with_rotation, "C:\\Users\\Gardh\\Downloads\\Dro
 
 
 class SliceSurfaceAlgo:
-    def __init__(self, mesh):
+    def __init__(self, mesh, original_mesh, plotter):
         super().__init__()
         # Configure the basic settings for logging
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -60,6 +60,9 @@ class SliceSurfaceAlgo:
 
         # Mesh
         self.mesh = mesh
+        self.original_mesh = original_mesh
+
+        self.plotter = plotter
 
         # Settings for camera specs of the drone, this decides what points to eliminate based on tilt and fov
         self.camera_specs = {
@@ -120,10 +123,10 @@ class SliceSurfaceAlgo:
         bulbus_hull_rays = []
         best_distance = 10000
         best_point = None
-        for ray_z_level in np.arange(multi_block["Hull"].center[2], z_min, -0.3):
+        for ray_z_level in np.arange(self.mesh.center[2], z_min, -0.3):
             ray_start = [0, y_max + 2, ray_z_level]
-            ray_end = [0, multi_block["Hull"].center[1], ray_z_level]
-            intersections = multi_block["Hull"].ray_trace(ray_start, ray_end)[0]
+            ray_end = [0, self.mesh.center[1], ray_z_level]
+            intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
             bulb_ray = pv.Line(ray_start, ray_end)
             bulbus_hull_rays.append(bulb_ray)
             if intersections.size > 0:
@@ -136,7 +139,7 @@ class SliceSurfaceAlgo:
         if self.logger.isEnabledFor(logging.DEBUG):
             try:
                 bulbplotter = pv.Plotter()
-                bulbplotter.add_mesh(multi_block["Ship"], color='lightgrey')
+                bulbplotter.add_mesh(self.original_mesh, color='lightgrey')
                 # plotter.add_mesh(laser_cylinder, color='red', opacity=0.5)
                 bulbplotter.add_mesh(bulbus_hull_rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
                 for ray in bulbus_hull_rays[1:]:
@@ -149,17 +152,17 @@ class SliceSurfaceAlgo:
 
     def find_optimal_location_for_picture(self, multi_block, horizontal_spacing, vertical_spacing, distance, z_min_filter,
                                           z_max_filter, min_distance, camera_specs, scan_height):
-        x_min, x_max, y_min, y_max, z_min, z_max = multi_block["Hull"].bounds
-        z_res = (multi_block["Hull"].length / (horizontal_spacing / 0.8))
+        x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
+        z_res = (self.mesh.length / (horizontal_spacing / 0.8))
         v_res = ((abs(x_min) + x_max) / (vertical_spacing / 2.2))
         self.logger.debug(f"z_res: {z_res}, v_res: {v_res}")
 
         bulb_z_height = self.find_center_of_bulbus_hull(multi_block, y_max, z_min)
 
-        laser_cylinder = pv.CylinderStructured(center=multi_block["Hull"].center, direction=(0, 1, 0),
-                                               radius=((x_max - x_min) / 2) * 2, height=multi_block["Hull"].length,
+        laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
+                                               radius=((x_max - x_min) / 2) * 2, height=self.mesh.length,
                                                theta_resolution=int(v_res), z_resolution=int(z_res))
-        wave_breaker_laser = pv.Sphere(center=(multi_block["Hull"].center[0], y_max - 2, bulb_z_height[2]),
+        wave_breaker_laser = pv.Sphere(center=(self.mesh.center[0], y_max - 2, bulb_z_height[2]),
                                        direction=(1, 0, 0), radius=10, theta_resolution=5, phi_resolution=5)
 
         projected_points = []
@@ -174,7 +177,7 @@ class SliceSurfaceAlgo:
         laser_points = {
             "cylinder": laser_cylinder.points,
             "wave_breaker": wave_breaker_laser.points,
-            "bulbus_additonals": [[0, y_max + 2, bulb_z_height[2]], [0, y_max + 2, multi_block["Hull"].center[2]]]
+            "bulbus_additonals": [[0, y_max + 2, bulb_z_height[2]], [0, y_max + 2, self.mesh.center[2]]]
         }
 
         # Project each grid point onto the mesh surface
@@ -186,20 +189,20 @@ class SliceSurfaceAlgo:
                         continue
                     else:
                         ray_start = point
-                        ray_end = [multi_block["Hull"].center[0], point[1], multi_block["Hull"].center[2]]
+                        ray_end = [self.mesh.center[0], point[1], self.mesh.center[2]]
 
                 elif model == "wave_breaker":
                     if point[1] < y_max - 1.5:
                         continue
                     else:
                         ray_start = point
-                        ray_end = [multi_block["Hull"].center[0], y_max - 2.5, bulb_z_height[2]]
+                        ray_end = [self.mesh.center[0], y_max - 2.5, bulb_z_height[2]]
 
                 elif model == "bulbus_additonals":
                     ray_start = point
-                    ray_end = [multi_block["Hull"].center[0], y_max - 2.5, bulb_z_height[2]]
+                    ray_end = [self.mesh.center[0], y_max - 2.5, bulb_z_height[2]]
 
-                intersections = multi_block["Hull"].ray_trace(ray_start, ray_end)[0]
+                intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
                 ray = pv.Line(ray_start, ray_end)
                 rays.append(ray)
                 if intersections.size > 0:
@@ -207,8 +210,8 @@ class SliceSurfaceAlgo:
                     plot_points.append(projected_point)
 
                     # Find the closest point on the mesh and get the point normal
-                    closest_point_id = multi_block["Hull"].find_closest_point(projected_point)
-                    point_normal = multi_block["Hull"].point_normals[closest_point_id]
+                    closest_point_id = self.mesh.find_closest_point(projected_point)
+                    point_normal = self.mesh.point_normals[closest_point_id]
 
                     # Displace the projected point based on the normal and distance
                     displaced_point = projected_point + point_normal * distance
@@ -216,7 +219,7 @@ class SliceSurfaceAlgo:
                     if displaced_point[2] < z_min_filter or displaced_point[2] > z_max_filter:
                         filter_delete.append(displaced_point)
                         continue
-                    elif self.check_for_camerapos_to_close_to_3dmodel(displaced_point, multi_block["Ship"], min_distance):
+                    elif self.check_for_camerapos_to_close_to_3dmodel(displaced_point, self.original_mesh, min_distance):
                         bound_delete.append(displaced_point)
                         continue
                     else:
@@ -231,7 +234,7 @@ class SliceSurfaceAlgo:
         if self.logger.isEnabledFor(logging.DEBUG):
             try:
                 plotter = pv.Plotter()
-                plotter.add_mesh(multi_block["Ship"], color='lightgrey')
+                plotter.add_mesh(self.original_mesh, color='lightgrey')
                 plotter.add_mesh(rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
                 for ray in rays[1:]:
                     plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
@@ -241,7 +244,7 @@ class SliceSurfaceAlgo:
 
             try:
                 pointplot = pv.Plotter()
-                pointplot.add_mesh(multi_block["Ship"], color='lightgrey')
+                pointplot.add_mesh(self.original_mesh, color='lightgrey')
                 pointplot.add_points(pv.PolyData(displaced_points), color='red', point_size=5, opacity=0.5)
                 pointplot.add_points(pv.PolyData(plot_points), color='green', point_size=5, opacity=0.5)
                 pointplot.show()
@@ -250,7 +253,7 @@ class SliceSurfaceAlgo:
 
             try:
                 deleted_plotter = pv.Plotter()
-                deleted_plotter.add_mesh(multi_block["Ship"], color='lightgrey')
+                deleted_plotter.add_mesh(self.original_mesh, color='lightgrey')
                 deleted_plotter.add_points(pv.PolyData(bound_delete), color='red', point_size=5, opacity=0.5)
                 if len(filter_delete) > 0:
                     deleted_plotter.add_points(pv.PolyData(filter_delete), color='orange', point_size=5, opacity=0.5)
@@ -375,12 +378,12 @@ class SliceSurfaceAlgo:
             for i in range(len(first_elements) - 1):
                 ray = pv.Line(first_elements[i], first_elements[i + 1])
                 rays.append(ray)
-            plotter = pv.Plotter()
-            plotter.add_mesh(multi_block["Ship"], color='lightgrey')
-            plotter.add_points(pv.PolyData(first_elements), color='red', point_size=5, opacity=0.5)
+            self.plotter.clear_actors()
+            self.plotter.add_text("Generated Flight Path")
+            self.plotter.add_mesh(self.original_mesh, color='lightgrey')
+            self.plotter.add_points(pv.PolyData(first_elements), color='red', point_size=5, opacity=0.5)
             for ray1 in rays:
-                plotter.add_mesh(ray1, color="blue", line_width=5, opacity=0.5)
-            plotter.show()
+                self.plotter.add_mesh(ray1, color="blue", line_width=5, opacity=0.5)
         except:
             pass
 
@@ -389,14 +392,14 @@ class SliceSurfaceAlgo:
     def check_for_collisions(self, point1, point2, multi_block):
         # Chjeck if there are any intersections between two points using ray tracing
         # Returns true if there is an intersections, and false if not.
-        intersections = multi_block["Ship"].ray_trace(point1, point2)[0]
+        intersections = self.original_mesh.ray_trace(point1, point2)[0]
         if len(intersections) > 0:
             xm = (point1[0] + point2[0]) / 2
             ym = (point1[1] + point2[1]) / 2
             zm = (point1[2] + point2[2]) / 2
 
             p1 = np.array([xm, ym, zm])
-            p2 = np.array(multi_block["Ship"].center)
+            p2 = np.array(self.original_mesh.center)
             # Calculate the direction vector from p2 to p1
             direction_vector = p1 - p2
 
@@ -450,6 +453,11 @@ class SliceSurfaceAlgo:
 
         return output
 
+    # implement method that outputs depth images to specified folder
+    # follow documentation: https://docs.pyvista.org/version/stable/examples/02-plot/image_depth.html
+    def get_depth_map(self, cpos):
+        return True
+
     def generate_path(self):
         bounds = self.mesh.bounds
 
@@ -473,6 +481,5 @@ class SliceSurfaceAlgo:
 
         point_cloud = [startpos] + point_cloud
         tsp_path_with_rotation = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
-        print(tsp_path_with_rotation)
 
         # self.export_cameras_to_file(tsp_path_with_rotation, "C:\\Users\\Gardh\\Downloads\\Drone build\\sliced.txt")

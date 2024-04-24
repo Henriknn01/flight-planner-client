@@ -3,7 +3,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout
 from superqt import QLabeledRangeSlider, QLabeledSlider
-from utils import simple_path
+from utils.simple_path import SimplePath
+from utils.algo import SliceSurfaceAlgo
 
 
 class InteractorWidget(QWidget):
@@ -13,6 +14,7 @@ class InteractorWidget(QWidget):
 
         # The class assumes that the plotter is a multi plotter with 2 cols
         self.plotter = plotter
+        self.original_mesh = None
 
         if top_text:
             self.plotter.add_text(top_text)
@@ -30,6 +32,7 @@ class MainPanelWidget(QWidget):
     def __init__(self, plotter):
         super().__init__()
 
+        self.original_mesh = None
         self.layout = QVBoxLayout(self)
 
         self.plotter = plotter
@@ -134,12 +137,20 @@ class MainPanelWidget(QWidget):
             self.plotter[0, 0].clear_actors()
             self.plotter[0, 0].add_text("Model preview - select scan section")
             hull = pyvista.read(file_name)
+            self.original_mesh = hull
             # self.plotter.add_mesh(hull, cmap="terrain", lighting=True, smooth_shading=True, split_sharp_edges=True)
             self.plotter[0, 0].add_mesh_clip_box(hull, cmap="terrain", lighting=True)
-            self.plotter[0, 0].add_callback(self.generate)
+            # self.plotter[0, 0].add_callback(self.generate)
             self.plotter[0, 0].reset_camera()
 
+    """
+
     def generate(self):
-        path = simple_path.SimplePath(self.plotter[0, 0].box_clipped_meshes[0])
+        path = SimplePath(self.plotter[0, 0].box_clipped_meshes[0])
         path.generate_path(self.plotter[0, 1], n_h_slices=self.labeled_slider_h_slices.value(),
                            n_v_slices=self.labeled_slider_v_slices.value())
+    """
+    def generate(self):
+        if self.original_mesh is not None:
+            p = SliceSurfaceAlgo(self.plotter[0, 0].box_clipped_meshes[0].extract_surface(), self.original_mesh, self.plotter[0, 1])
+            p.generate_path()
