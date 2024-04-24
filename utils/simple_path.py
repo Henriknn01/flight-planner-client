@@ -31,4 +31,4 @@ class SimplePath:
                 b.points[:, 2] *= offset_z
         plotter.add_mesh(slices, style="points", point_size=5, render_points_as_spheres=True, color="red")
         plotter.add_mesh(self.mesh)
-        plotter.show()
+        # plotter.show()
