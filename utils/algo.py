@@ -64,6 +64,8 @@ class SliceSurfaceAlgo:
 
         self.plotter = plotter
 
+        self.rays = []
+
         # Settings for camera specs of the drone, this decides what points to eliminate based on tilt and fov
         self.camera_specs = {
             "fov": 40,
@@ -172,7 +174,6 @@ class SliceSurfaceAlgo:
         tilt_delete = []
         bound_delete = []
         filter_delete = []
-        rays = []
 
         laser_points = {
             "cylinder": laser_cylinder.points,
@@ -204,7 +205,7 @@ class SliceSurfaceAlgo:
 
                 intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
                 ray = pv.Line(ray_start, ray_end)
-                rays.append(ray)
+                self.rays.append(ray)
                 if intersections.size > 0:
                     projected_point = intersections[0]  # Take the first intersection
                     plot_points.append(projected_point)
@@ -235,8 +236,8 @@ class SliceSurfaceAlgo:
             try:
                 plotter = pv.Plotter()
                 plotter.add_mesh(self.original_mesh, color='lightgrey')
-                plotter.add_mesh(rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
-                for ray in rays[1:]:
+                plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+                for ray in self.rays[1:]:
                     plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
                 plotter.show()
             except:
@@ -457,6 +458,11 @@ class SliceSurfaceAlgo:
     # follow documentation: https://docs.pyvista.org/version/stable/examples/02-plot/image_depth.html
     def get_depth_map(self, cpos):
         return True
+
+    def toggle_rays(self):
+        self.plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+        for ray in self.rays[1:]:
+            self.plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
 
     def generate_path(self):
         bounds = self.mesh.bounds

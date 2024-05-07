@@ -11,6 +11,7 @@ class InteractorWidget(QWidget):
     def __init__(self, plotter, top_text=None):
         super().__init__()
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
         # The class assumes that the plotter is a multi plotter with 2 cols
         self.plotter = plotter
@@ -21,7 +22,7 @@ class InteractorWidget(QWidget):
 
         self.plotter.show_axes()
 
-        self.layout.addWidget(self.plotter.main_menu)
+        # self.layout.addWidget(self.plotter.main_menu)
         self.layout.addWidget(self.plotter.default_camera_tool_bar)
         self.layout.addWidget(self.plotter.interactor)
 
@@ -31,22 +32,22 @@ class InteractorWidget(QWidget):
 class MainPanelWidget(QWidget):
     def __init__(self, plotter):
         super().__init__()
-
         self.original_mesh = None
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.plotter = plotter
-
-        self.title = QLabel(self)
-        self.title.setText("Flight path generator")
-        self.title.setFont(QFont('Arial', 24, QFont.Bold))
-        self.layout.addWidget(self.title)
 
         # settings section
         self.label_settings = QLabel(self)
         self.label_settings.setText("Display settings")
         self.layout.addWidget(self.label_settings)
         hbox_layout = QHBoxLayout()
+        # Add toggle show rays option
+        self.show_rays_checkbox = QCheckBox("Show Rays", self)
+        self.show_rays_checkbox.setChecked(False)
+        # self.show_rays_checkbox.stateChanged.connect(self.toggle_show_rays)
+        hbox_layout.addWidget(self.show_rays_checkbox)
         # Add toggle show bounds option
         self.show_bounds_checkbox = QCheckBox("Show Bounds", self)
         self.show_bounds_checkbox.setChecked(False)
@@ -121,11 +122,19 @@ class MainPanelWidget(QWidget):
 
         self.setLayout(self.layout)
 
+        self.algoOutput = None
+
     def toggle_show_bounds(self):
         if self.show_bounds_checkbox.isChecked():
             self.plotter.show_bounds()
         else:
             self.plotter.remove_bounds_axes()
+
+    def toggle_show_bounds(self):
+        if self.show_rays_checkbox.isChecked():
+            self.generate()
+        else:
+            self.generate()
 
     def showFileDialog(self):
         self.file_dialog = QFileDialog(self)
