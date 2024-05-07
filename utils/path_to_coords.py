@@ -1,5 +1,10 @@
 from typing import Tuple
-from math import sin, cos, sqrt, asin, radians
+from math import sin, cos, sqrt, asin, radians, acos, degrees, atan2
+import numpy as np
+from scipy.optimize import minimize, least_squares
+
+import numpy
+
 """
 Translate a path to coordinates
 
@@ -47,56 +52,102 @@ class Vector3:
         return Vector3(self.x / scalar, self.y / scalar, self.z / scalar)
 
     def __eq___(self, other: 'Vector3') -> bool:
-        """ Checks if two vectors are equal. Returns true if they are equal, false otherwise. """
+        """
+        Checks if two vectors are equal.
+        :returns: true if they are equal, false otherwise.
+        """
         if not isinstance(other, Vector3):
             raise TypeError(f"{other} is not a Vector3 object")
         return self.x == other.x and self.y == other.y and self.z == other.z
 
     def __ne__(self, other: 'Vector3') -> bool:
-        """ Checks if two vectors are not equal. Returns true if they are not equal, false otherwise. """
+        """
+        Checks if two vectors are not equal.
+        :returns: true if they are not equal, false otherwise.
+        """
         if not isinstance(other, Vector3):
             raise TypeError(f"{other} is not a Vector3 object")
         return self.x != other.x or self.y != other.y or self.z != other.z
 
     def set_x(self, x: float):
-        """Set the x coordinate of the point. Returns the new x coordinate of the point."""
+        """
+        Set the x coordinate of the point.
+        :returns: the new x coordinate of the point.
+        """
         self.x = x
 
     def get_x(self) -> float:
-        """Get the x coordinate of the point. Returns the x coordinate of the point."""
+        """
+        Get the x coordinate of the point.
+        :returns: the x coordinate of the point.
+        """
         return self.x
 
     def set_y(self, y: float):
-        """Set the y coordinate of the point. Returns the new y coordinate of the point."""
+        """
+        Set the y coordinate of the point.
+        :returns: the new y coordinate of the point.
+        """
         self.y = y
 
     def get_y(self) -> float:
-        """Get the y coordinate of the point. Returns the y coordinate of the point."""
+        """
+        Get the y coordinate of the point.
+        :returns: the y coordinate of the point.
+        """
         return self.y
 
     def set_z(self, z: float):
-        """Set the z coordinate of the point. Returns the x, y and z coordinates with the new z coordinate."""
+        """
+        Set the z coordinate of the point.
+        :returns: the x, y and z coordinates with the new z coordinate.
+        """
         self.z = z
 
     def get_z(self) -> float:
-        """Get the z coordinate of the point. Returns the z coordinate of the point."""
+        """
+        Get the z coordinate of the point.
+        :returns: the z coordinate of the point.
+        """
         return self.z
 
     def set(self, x: float, y: float, z: float):
-        """Set x, y, z of the point. Returns the new x, y and z coordinates of the point."""
+        """
+        Set x, y, z of the point.
+        :returns: the new x, y and z coordinates of the point.
+        """
         self.set_x(x)
         self.set_y(y)
         self.set_z(z)
 
     def get(self) -> Tuple[float, float, float]:
-        """Get the x, y, z of the point. Return x, y and z coordinates."""
+        """
+        Get the x, y, z of the point.
+        :returns: x, y and z coordinates.
+        """
         return self.x, self.y, self.z
 
     def get_distance(self, other: 'Vector3') -> float:
-        """ Returns the distance between this vector and another vector."""
+        """
+        :returns: the distance between this vector and another vector.
+        """
         if not isinstance(other, Vector3):
             raise TypeError(f"{other} is not a Vector3 object")
         return sqrt((self.x - other.x)**2 + (self.y - other.y)**2 + (self.z - other.z)**2)
+
+    def get_magnitude(self) -> float:
+        """
+        :returns: the magnitude of the vector.
+        """
+        return sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
+
+    def get_angle(self, other: 'Vector3') -> float:
+        """
+        :returns: the angle between this vector and another vector.
+        """
+        if not isinstance(other, Vector3):
+            raise TypeError(f"{other} is not a Vector3 object")
+        return degrees(atan2(other.get_z() - self.get_z(), other.get_x() - self.get_x()))
 
 
 class GPSCoordinate:
@@ -112,6 +163,16 @@ class GPSCoordinate:
     def __str__(self):
         return f"[lat: {self.lat}, long: {self.long}]"
 
+    def __sub__(self, other: 'GPSCoordinate') -> 'GPSCoordinate':
+        if not isinstance(other, GPSCoordinate):
+            raise TypeError(f"{other} is not a GPSCoordinate object")
+        return GPSCoordinate(self.lat - other.lat, self.long - other.long)
+
+    def __add__(self, other: 'GPSCoordinate') -> 'GPSCoordinate':
+        if not isinstance(other, GPSCoordinate):
+            raise TypeError(f"{other} is not a GPSCoordinate object")
+        return GPSCoordinate(self.lat + other.lat, self.long + other.long)
+
     def set_lat(self, lat: float):
         """Set the latitude of the point."""
         if lat > 90 or lat < -90:
@@ -119,7 +180,10 @@ class GPSCoordinate:
         self.lat = lat
 
     def get_lat(self) -> float:
-        """Get the latitude of the point. Returns the latitude of the point."""
+        """
+        Get the latitude of the point.
+        :returns: the latitude of the point.
+        """
         return self.lat
 
     def set_long(self, long: float):
@@ -129,7 +193,10 @@ class GPSCoordinate:
         self.long = long
 
     def get_long(self) -> float:
-        """Get the longitude of the point. Returns the longitude of the point."""
+        """
+        Get the longitude of the point.
+        :returns: the longitude of the point.
+        """
         return self.long
 
     def set(self, lat: float, long: float):
@@ -138,7 +205,10 @@ class GPSCoordinate:
         self.set_long(long)
 
     def get(self) -> Tuple[float, float]:
-        """Get the latitude and longitude of the point. Returns the latitude and longitude of the point."""
+        """
+        Get the latitude and longitude of the point.
+        :returns: the latitude and longitude of the point.
+        """
         return self.lat, self.long
 
     def get_distance(self, gps_coordinate: 'GPSCoordinate', unit_modifier: float = 1.0) -> float:
@@ -173,16 +243,98 @@ class BasePoint:
     def __str__(self):
         return f"{self.position}, {self.gps_position}, alt: {self.altitude}"
 
+    @staticmethod
+    def gps_to_cartesian(lat: float, long: float, altitude: float = 0.0) -> Tuple[float, float, float]:
+        """
+        Convert GPS coordinates to cartesian coordinates.
+        AI Disclaimer: This function is mostly AI generated.
+
+        :returns: Cartesian coordinates of the GPS coordinates.
+        """
+        if not isinstance(lat, float) or not isinstance(long, float) or not isinstance(altitude, float):
+            raise TypeError(f"Paramaters must be of type float")
+        lat, long = np.deg2rad(lat), np.deg2rad(long)
+        R = 6371.0
+        x = (R + altitude) * cos(lat) * cos(long)
+        y = (R + altitude) * cos(lat) * sin(long)
+        z = (R + altitude) * sin(lat)
+        return x, y, z
+
+    @staticmethod
+    def trilateration(x, y, z, dist):
+        """
+        Trilateration algorithm to find unknown point with known distances to reference points.
+        AI Disclaimer: This function is mostly AI generated.
+
+        :returns: Lat and long coordinates of the unknown point.
+        """
+
+        def residuals(v):
+            return np.sqrt((x - v[0]) ** 2 + (y - v[1]) ** 2 + (z - v[2]) ** 2) - dist
+
+        res = least_squares(residuals, (0.0, 0.0, 0.0))
+        return res.x
+
 
 class ReferencePoint(BasePoint):
     def __init__(self, x, y, z, lat, long, altitude):
         super().__init__(x, y, z, lat, long, altitude)
 
+    def get_conversion_factor(self, other: 'ReferencePoint') -> float:
+        """
+        Gets the conversion factor between virtual distances and real distances.
+        It gets the conversion factor by getting the distance between two points in both km and virtual distance.
+        The distance in km is then divided by the virtual distance to get the conversion factor.
+
+        :param other: A ReferencePoint object to base the conversion factor of.
+        :return: the conversion factor between virtual distances and real distances.
+        """
+        if not isinstance(other, ReferencePoint):
+            raise TypeError(f"{other} is not a ReferencePoint object")
+        return self.gps_position.get_distance(other.gps_position) / self.position.get_distance(other.position)
+
 
 class PathPoint(BasePoint):
     def __init__(self, x, y, z):
         super().__init__(x, y, z, lat=0.0, long=0.0, altitude=0.0)
+        # TODO: add direction/orientation
 
-    def get_lat_long_from_reference_points(self, ref1: ReferencePoint, ref2: ReferencePoint, ref3: ReferencePoint):
-        # Needs to map virtual distance to real world distance, then use triangulation to find the gps coordinate of the position.
-        pass
+    def get_gps_pos_from_reference_points(self, ref1: ReferencePoint, ref2: ReferencePoint, ref3: ReferencePoint) -> GPSCoordinate:
+        """
+        Get a GPS coordinate from three reference points.
+
+        AI Disclaimer: This function contains AI generated code.
+
+        :param ref1: Reference point 1
+        :param ref2: Reference point 2
+        :param ref3: Reference point 3
+        :return: GPS coordinate of the PathPoint derived from reference points.
+        """
+        if not isinstance(ref1, ReferencePoint) or not isinstance(ref2, ReferencePoint) or not isinstance(ref3, ReferencePoint):
+            raise TypeError(f"One or more of the reference points are not a ReferencePoint object")
+
+        conversion_factor = ref1.get_conversion_factor(ref2)  # create conversion factor
+
+        R = 6371.0  # Earths radius
+
+        # Map virtual distances to real distances
+        distance_to_ref1 = self.position.get_distance(ref1.position) * conversion_factor
+        distance_to_ref2 = self.position.get_distance(ref2.position) * conversion_factor
+        distance_to_ref3 = self.position.get_distance(ref3.position) * conversion_factor
+
+        # List containing the distances from the unknown point to the reference points
+        distances = [distance_to_ref1, distance_to_ref2, distance_to_ref3]
+
+        # List containing the gps coordinates of the reference points
+        gps_positions = [ref1.gps_position.get(), ref2.gps_position.get(), ref3.gps_position.get()]
+
+        # Translate the gps coordinates to cartesian coordinates
+        cartesian = np.array([self.gps_to_cartesian(*pos) for pos in gps_positions])
+
+        # Use trilateration to find the position of the unknown point
+        x, y, z = self.trilateration(*cartesian.T, dist=distances)
+
+        lat = np.arcsin(z / R)  # convert back to latitude
+        long = np.arctan2(y, x)  # convert back to longitude
+        lat, long = np.rad2deg((lat, long))  # Convert from radians to degrees
+        return GPSCoordinate(lat, long)
