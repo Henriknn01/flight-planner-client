@@ -310,6 +310,10 @@ class SliceSurfaceAlgo:
                 file.write(
                     f"PIC,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
 
+    def export_cameras_to_flight_file(self, cameras, file_path):
+        # TOOO: Implement method that writes the flight path to a drone readable file
+        pass
+
     def euclidean_distance(self, point1, point2):
         # do normal lingalg to get distance between points
         return math.sqrt(sum((x - y) ** 2 for x, y in zip(point1, point2)))
