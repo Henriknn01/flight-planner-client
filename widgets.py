@@ -1,6 +1,6 @@
 import pyvista
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QFont, QDoubleValidator, QIntValidator
+from PySide6.QtGui import QFont, QDoubleValidator, QIntValidator, QRegularExpressionValidator
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QLineEdit
 from superqt import QLabeledRangeSlider, QLabeledSlider, QLabeledDoubleSlider
 from utils.simple_path import SimplePath
@@ -37,6 +37,8 @@ class ReferencePointWidget(QWidget):
 
         hbox_layout = QHBoxLayout()
 
+        validator = QRegularExpressionValidator('^\d*.\d*$')
+
         self.label_ref = QLabel(self)
         self.label_ref.setText("Virtual Coordinates")
         self.layout.addWidget(self.label_ref)
@@ -44,21 +46,21 @@ class ReferencePointWidget(QWidget):
         self.label_ref_x = QLabel(self)
         self.label_ref_x.setText("x: ")
         self.x_r = QLineEdit(self)
-        self.x_r.setValidator(QDoubleValidator())
+        self.x_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_x)
         hbox_layout.addWidget(self.x_r)
 
         self.label_ref_y = QLabel(self)
         self.label_ref_y.setText("y: ")
         self.y_r = QLineEdit(self)
-        self.y_r.setValidator(QDoubleValidator())
+        self.y_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_y)
         hbox_layout.addWidget(self.y_r)
 
         self.label_ref_z = QLabel(self)
         self.label_ref_z.setText("z: ")
         self.z_r = QLineEdit(self)
-        self.z_r.setValidator(QDoubleValidator())
+        self.z_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_z)
         hbox_layout.addWidget(self.z_r)
 
@@ -73,14 +75,14 @@ class ReferencePointWidget(QWidget):
         self.label_ref_n = QLabel(self)
         self.label_ref_n.setText("N: ")
         self.n_r = QLineEdit(self)
-        self.n_r.setValidator(QDoubleValidator())
+        self.n_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_n)
         hbox_layout.addWidget(self.n_r)
 
         self.label_ref_e = QLabel(self)
         self.label_ref_e.setText("E: ")
         self.e_r = QLineEdit(self)
-        self.e_r.setValidator(QDoubleValidator())
+        self.e_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_e)
         hbox_layout.addWidget(self.e_r)
 
@@ -241,22 +243,19 @@ class MainPanelWidget(PanelWidget):
         self.plotter = plotter
 
         # settings section
-        """
-        self.file_label = QLabel(self)
-        self.file_label.setText("Select file")
-        self.file_label.setFont(QFont('Arial', 18, QFont.Bold))
-        self.layout.addWidget(self.file_label)
-        # Add file dialog button
-        self.file_dialog_button = QPushButton('Select File', self)
-        self.file_dialog_button.clicked.connect(self.showFileDialog)
-        self.layout.addWidget(self.file_dialog_button)
-        
-        """
 
         self.label_camera = QLabel(self)
         self.label_camera.setText("Drone Path Settings")
         self.label_camera.setFont(QFont('Arial', 22, QFont.Bold))
         self.layout.addWidget(self.label_camera)
+
+        self.label_slider_distance_tg = QLabel(self)
+        self.label_slider_distance_tg.setText("Distance of hull to ground (in meters)")
+        self.layout.addWidget(self.label_slider_distance_tg)
+
+        self.labeled_slider_distance_tg = QLabeledDoubleSlider(self)
+        self.labeled_slider_distance_tg.setRange(0, 10)
+        self.layout.addWidget(self.labeled_slider_distance_tg)
 
         self.label_slider1 = QLabel(self)
         self.label_slider1.setText("Waypoint Offset")
