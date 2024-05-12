@@ -53,7 +53,7 @@ class SliceSurfaceAlgo:
     def __init__(self, plotter):
         super().__init__()
         # Configure the basic settings for logging
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
         # Get the root logger
         self.logger = logging.getLogger()
@@ -82,7 +82,7 @@ class SliceSurfaceAlgo:
         # Distance from the ship hull, this determines how many pictures is needed, and the resolution
         self.drone_distance = 2.5
         self.overlap_amount = 0.1  # overlap makes the points slightly closer
-        self.min_distance = 1  # distance from the ship, if inside the box of 2 meters it will be deleted
+        self.min_distance = 0.5  # distance from the ship, if inside the box of 2 meters it will be deleted
 
         # Max height for the drone to fly
         self.max_height = 100
@@ -123,7 +123,7 @@ class SliceSurfaceAlgo:
 
         return pitch, yaw, roll
 
-    def find_center_of_bulbus_hull(self, y_max, z_min):
+    def find_center_of_bulbus_hull(self, y_max, z_min, z_max):
         # so plan is, do ray cast, in a straight line down middle, find the shortest ray, thats the center of bulb
         # then find the local minimum upwards thats the end of bulb
         # then find where its higher then local minimum downwards thats the end of the other side
@@ -132,11 +132,12 @@ class SliceSurfaceAlgo:
         best_distance = 10000
         improved = True
         best_point = None
-        max_tries = len(np.arange(z_min, self.mesh.center[2], 0.3))
+        max_tries = len(np.arange(z_min, z_max, 0.3))
         tries_done = 0
+        not_improved = 0
         while improved:
             improved = False
-            for ray_z_level in np.arange(z_min, self.mesh.center[2], 0.3):
+            for ray_z_level in np.arange(z_min, z_max, 0.3):
                 ray_start = [0, y_max + 2, ray_z_level]
                 ray_end = [0, self.mesh.center[1], ray_z_level]
                 intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
@@ -150,7 +151,9 @@ class SliceSurfaceAlgo:
                         best_point = projected_point
                         improved = True
                     else:
-                        break
+                        if not_improved >= 2:
+                            break
+                        not_improved += 1
             if tries_done > max_tries:
                 break
             tries_done += 1
@@ -176,11 +179,11 @@ class SliceSurfaceAlgo:
         v_res = ((abs(x_min) + x_max) / (vertical_spacing / 2.2))
         self.logger.debug(f"z_res: {z_res}, v_res: {v_res}")
 
-        bulb_z_height = self.find_center_of_bulbus_hull(y_max, z_min)
+        bulb_z_height = self.find_center_of_bulbus_hull(y_max, z_min, z_max)
 
-
-        laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
-                                               radius=((x_max - x_min) / 2) * 2, height=self.mesh.length,
+        cylinderCenter = [self.mesh.center[0], self.mesh.center[1], self.mesh.center[2]]
+        laser_cylinder = pv.CylinderStructured(center=cylinderCenter, direction=(0, 1, 0),
+                                               radius=((x_max - x_min)), height=self.mesh.length,
                                                theta_resolution=int(v_res), z_resolution=int(z_res))
 
         wave_breaker_laser = pv.Sphere(center=(self.mesh.center[0], y_max - 2, bulb_z_height[2]),
@@ -209,7 +212,7 @@ class SliceSurfaceAlgo:
                         continue
                     else:
                         ray_start = point
-                        ray_end = [self.mesh.center[0], point[1], self.mesh.center[2]]
+                        ray_end = [self.mesh.center[0], point[1], self.mesh.center[2]+abs((z_min-z_max)/4)]
 
                 elif model == "wave_breaker":
                     if point[1] < y_max - 1.5:
@@ -253,21 +256,14 @@ class SliceSurfaceAlgo:
         # PyVista plotting
         if self.logger.isEnabledFor(logging.DEBUG):
             try:
-                plotter = pv.Plotter()
-                plotter.add_mesh(self.original_mesh, color='lightgrey')
-                plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+                plotterCyl = pv.Plotter()
+                plotterCyl.add_mesh(self.original_mesh, color='lightgrey')
+                plotterCyl.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
                 for ray in self.rays[1:]:
-                    plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
-                plotter.show()
+                    plotterCyl.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
+                plotterCyl.show()
             except:
                 pass
-
-            plotter = pv.Plotter()
-            plotter.add_mesh(self.original_mesh, color='lightgrey')
-            plotter.add_mesh(rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
-            for ray in rays[1:]:
-                plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
-            plotter.show()
 
 
             pointplot = pv.Plotter()
@@ -280,10 +276,18 @@ class SliceSurfaceAlgo:
 
             deleted_plotter = pv.Plotter()
             deleted_plotter.add_mesh(self.original_mesh, color='lightgrey')
-            deleted_plotter.add_points(pv.PolyData(bound_delete), color='red', point_size=5, opacity=0.5)
-            if len(filter_delete) > 0:
+            try:
+                deleted_plotter.add_points(pv.PolyData(bound_delete), color='red', point_size=5, opacity=0.5)
+            except:
+                pass
+            try:
                 deleted_plotter.add_points(pv.PolyData(filter_delete), color='orange', point_size=5, opacity=0.5)
-            deleted_plotter.add_points(pv.PolyData(tilt_delete), color='green', point_size=5, opacity=0.5)
+            except:
+                pass
+            try:
+                deleted_plotter.add_points(pv.PolyData(tilt_delete), color='green', point_size=5, opacity=0.5)
+            except:
+                pass
             deleted_plotter.show()
 
         return cameras
@@ -363,9 +367,6 @@ class SliceSurfaceAlgo:
 
         for location in picture_locations:
             ray_start = location[0]
-
-
-
 
 
     def check_for_camerapos_to_close_to_3dmodel(self, point, mesh, min_distance):
@@ -506,8 +507,6 @@ class SliceSurfaceAlgo:
                     path.insert((coll[0] + l + 1), coll[1])
                     collision_index.append((coll[0]) + l + 1)
                     l += 1
-
-
 
             else:
                 collision_flag = False
