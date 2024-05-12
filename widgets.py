@@ -276,7 +276,7 @@ class MainPanelWidget(PanelWidget):
 
         self.labeled_slider1 = QLabeledDoubleSlider(self)
         self.labeled_slider1.setRange(0.5, 10)
-        self.labeled_slider1.setValue(4)
+        self.labeled_slider1.setValue(1.5)
         self.layout.addWidget(self.labeled_slider1)
 
         self.label_slider2 = QLabel(self)
@@ -284,7 +284,7 @@ class MainPanelWidget(PanelWidget):
         self.layout.addWidget(self.label_slider2)
 
         self.labeled_slider2 = QLabeledDoubleSlider(self)
-        self.labeled_slider2.setRange(0, 0.5)
+        self.labeled_slider2.setRange(0.01, 1)
         self.layout.addWidget(self.labeled_slider2)
 
         self.label_rangeSlider1 = QLabel(self)

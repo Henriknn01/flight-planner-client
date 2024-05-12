@@ -63,9 +63,9 @@ class SliceSurfaceAlgo:
         self.original_mesh = None
 
         self.plotter = plotter
-        bounds = self.mesh.bounds
+        # bounds = self.mesh.bounds
 
-        x_min, x_max, y_min, y_max, z_min, z_max = bounds
+        # x_min, x_max, y_min, y_max, z_min, z_max = bounds
 
         self.rays = []
 
@@ -90,7 +90,7 @@ class SliceSurfaceAlgo:
 
 
         # Max heigt for the drone to inspect
-        self.scan_height = z_max
+        self.scan_height = 100 # z_max
         self.scan_low = -100
       
         self.tsp_path_with_rotation = None
@@ -605,8 +605,6 @@ class SliceSurfaceAlgo:
     def get_depth_map(self, cpos):
         return True
 
-
-
     def set_camera_specs(self, fov, max_tilt_up, max_tilt_down, h_resolution, v_resolution):
         self.camera_specs = {
             "fov": fov,
@@ -653,6 +651,9 @@ class SliceSurfaceAlgo:
         # setting up bounds of the 3d model
         bounds = self.mesh.bounds
 
+        x_min, x_max, y_min, y_max, z_min, z_max = bounds
+
+        self.set_scan_height(z_max)
 
         # filename to export the cam positions
         # export_file = "sliced.txt"
