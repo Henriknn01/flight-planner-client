@@ -5,7 +5,7 @@ import numpy as np
 import networkx as nx
 import logging
 import scipy
-
+from PySide6 import QtGui
 
 """
 
@@ -50,7 +50,7 @@ export_cameras_to_file(tsp_path_with_rotation, "C:\\Users\\Gardh\\Downloads\\Dro
 
 
 class SliceSurfaceAlgo:
-    def __init__(self, mesh, original_mesh, plotter):
+    def __init__(self, plotter):
         super().__init__()
         # Configure the basic settings for logging
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -59,8 +59,8 @@ class SliceSurfaceAlgo:
         self.logger = logging.getLogger()
 
         # Mesh
-        self.mesh = mesh
-        self.original_mesh = original_mesh
+        self.mesh = None
+        self.original_mesh = None
 
         self.plotter = plotter
 
@@ -85,9 +85,11 @@ class SliceSurfaceAlgo:
         self.max_height = 21
         self.min_height = -10
 
-        # Max heigt for the drone to inspect
+        # Max height for the drone to inspect
         self.scan_height = 6
         self.scan_low = 0
+
+        self.tsp_path_with_rotation = None
 
     def calculate_look_at_euler_angles(self, camera_position, target_position):
         direction = np.array(camera_position) - np.array(target_position)
@@ -463,16 +465,51 @@ class SliceSurfaceAlgo:
     def get_depth_map(self, cpos):
         return True
 
+    def set_camera_specs(self, fov, max_tilt_up, max_tilt_down, h_resolution, v_resolution):
+        self.camera_specs = {
+            "fov": fov,
+            "camera_range": 30,
+            "max_tilt_up": max_tilt_up,
+            "max_tilt_down": max_tilt_down,
+            "h_resolution": h_resolution,
+            "v_resolution": v_resolution
+        }
+
+    def set_drone_waypoint_offset(self, offset: int | float):
+        self.drone_distance = offset
+
+    def set_drone_overlap_amount(self, overlap_amount: int | float):
+        self.overlap_amount = overlap_amount
+
+    def set_min_distance(self, min_distance: int | float):
+        self.min_distance = min_distance
+
+    def set_max_height(self, max_height: int | float):
+        self.max_height = max_height
+
+    def set_min_height(self, min_height: int | float):
+        self.min_height = min_height
+
+    def set_scan_height(self, scan_height: int | float):
+        self.scan_height = scan_height
+
+    def set_scan_low(self, scan_low: int | float):
+        self.scan_low = scan_low
+
     def toggle_rays(self):
         self.plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
         for ray in self.rays[1:]:
             self.plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
 
-    def generate_path(self):
-        bounds = self.mesh.bounds
+    def export_to_file(self, file_path: str):
+        self.export_cameras_to_file(self.tsp_path_with_rotation, file_path)
+
+    def generate_path(self, mesh, original_mesh):
+        self.mesh = mesh
+        self.original_mesh = original_mesh
 
         # setting up bounds of the 3d model
-        x_min, x_max, y_min, y_max, z_min, z_max = bounds
+        bounds = self.mesh.bounds
 
         # filename to export the cam positions
         # export_file = "sliced.txt"
@@ -490,6 +527,5 @@ class SliceSurfaceAlgo:
         # optional_nodes = get_optional_nodes_from_model(bounds)
 
         point_cloud = [startpos] + point_cloud
-        tsp_path_with_rotation = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
 
-        # self.export_cameras_to_file(tsp_path_with_rotation, "C:\\Users\\Gardh\\Downloads\\Drone build\\sliced.txt")
+        self.tsp_path_with_rotation = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)

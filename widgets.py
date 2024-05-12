@@ -3,6 +3,8 @@ from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont, QDoubleValidator, QIntValidator, QRegularExpressionValidator
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QLineEdit
 from superqt import QLabeledRangeSlider, QLabeledSlider, QLabeledDoubleSlider
+
+from utils.path_to_coords import ReferencePoint
 from utils.simple_path import SimplePath
 from utils.algo import SliceSurfaceAlgo
 
@@ -34,6 +36,7 @@ class ReferencePointWidget(QWidget):
         super().__init__()
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
+        self.reference_point = ReferencePoint(0, 0, 0, 0, 0, 0)
 
         hbox_layout = QHBoxLayout()
 
@@ -47,6 +50,7 @@ class ReferencePointWidget(QWidget):
         self.label_ref_x.setText("x: ")
         self.x_r = QLineEdit(self)
         self.x_r.setValidator(validator)
+        self.x_r.textChanged.connect(lambda: self.reference_point.set_x(float(self.x_r.text())))
         hbox_layout.addWidget(self.label_ref_x)
         hbox_layout.addWidget(self.x_r)
 
@@ -54,6 +58,7 @@ class ReferencePointWidget(QWidget):
         self.label_ref_y.setText("y: ")
         self.y_r = QLineEdit(self)
         self.y_r.setValidator(validator)
+        self.y_r.textChanged.connect(lambda: self.reference_point.set_y(float(self.y_r.text())))
         hbox_layout.addWidget(self.label_ref_y)
         hbox_layout.addWidget(self.y_r)
 
@@ -61,6 +66,7 @@ class ReferencePointWidget(QWidget):
         self.label_ref_z.setText("z: ")
         self.z_r = QLineEdit(self)
         self.z_r.setValidator(validator)
+        self.z_r.textChanged.connect(lambda: self.reference_point.set_z(float(self.z_r.text())))
         hbox_layout.addWidget(self.label_ref_z)
         hbox_layout.addWidget(self.z_r)
 
@@ -76,6 +82,7 @@ class ReferencePointWidget(QWidget):
         self.label_ref_n.setText("N: ")
         self.n_r = QLineEdit(self)
         self.n_r.setValidator(validator)
+        self.n_r.textChanged.connect(lambda: self.reference_point.set_lat(float(self.n_r.text())))
         hbox_layout.addWidget(self.label_ref_n)
         hbox_layout.addWidget(self.n_r)
 
@@ -83,6 +90,7 @@ class ReferencePointWidget(QWidget):
         self.label_ref_e.setText("E: ")
         self.e_r = QLineEdit(self)
         self.e_r.setValidator(validator)
+        self.e_r.textChanged.connect(lambda: self.reference_point.set_long(float(self.e_r.text())))
         hbox_layout.addWidget(self.label_ref_e)
         hbox_layout.addWidget(self.e_r)
 
@@ -132,6 +140,8 @@ class SelectReferencePointsWidget(PanelWidget):
         self.ref2_widget = ReferencePointWidget()
         self.ref3_widget = ReferencePointWidget()
 
+        validator = QRegularExpressionValidator('^\d*.\d*$')
+
         self.file_label = QLabel(self)
         self.file_label.setText("Select file")
         self.file_label.setFont(QFont('Arial', 18, QFont.Bold))
@@ -151,7 +161,7 @@ class SelectReferencePointsWidget(PanelWidget):
         self.label_ref_x.setText("x: ")
         self.x_r = QLineEdit(self)
         self.x_r.setDisabled(True)
-        self.x_r.setValidator(QDoubleValidator())
+        self.x_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_x)
         hbox_layout.addWidget(self.x_r)
 
@@ -159,7 +169,7 @@ class SelectReferencePointsWidget(PanelWidget):
         self.label_ref_y.setText("y: ")
         self.y_r = QLineEdit(self)
         self.y_r.setDisabled(True)
-        self.y_r.setValidator(QDoubleValidator())
+        self.y_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_y)
         hbox_layout.addWidget(self.y_r)
 
@@ -167,7 +177,7 @@ class SelectReferencePointsWidget(PanelWidget):
         self.label_ref_z.setText("z: ")
         self.z_r = QLineEdit(self)
         self.z_r.setDisabled(True)
-        self.z_r.setValidator(QDoubleValidator())
+        self.z_r.setValidator(validator)
         hbox_layout.addWidget(self.label_ref_z)
         hbox_layout.addWidget(self.z_r)
 
@@ -218,6 +228,9 @@ class SelectReferencePointsWidget(PanelWidget):
         self.setLayout(self.layout)
 
     def next(self):
+        print(self.ref1_widget.reference_point)
+        print(self.ref2_widget.reference_point)
+        print(self.ref3_widget.reference_point)
         self.change_page(0)
 
     def pick_callback(self, point):
@@ -263,6 +276,7 @@ class MainPanelWidget(PanelWidget):
 
         self.labeled_slider1 = QLabeledDoubleSlider(self)
         self.labeled_slider1.setRange(0.5, 10)
+        self.labeled_slider1.setValue(4)
         self.layout.addWidget(self.labeled_slider1)
 
         self.label_slider2 = QLabel(self)
@@ -278,8 +292,8 @@ class MainPanelWidget(PanelWidget):
         self.layout.addWidget(self.label_rangeSlider1)
 
         self.range_slider_one = QLabeledRangeSlider(Qt.Horizontal, self)
-        self.range_slider_one.setRange(0, 60)
-        self.range_slider_one.setValue([1, 30])
+        self.range_slider_one.setRange(-30, 30)
+        self.range_slider_one.setValue([-10, 30])
         self.layout.addWidget(self.range_slider_one)
 
         self.label_camera = QLabel(self)
@@ -346,7 +360,7 @@ class MainPanelWidget(PanelWidget):
 
         self.setLayout(self.layout)
 
-        self.algoOutput = None
+        self.algo = SliceSurfaceAlgo(self.plotter[0, 1])
 
     def back(self):
         self.change_page(1)
@@ -362,5 +376,15 @@ class MainPanelWidget(PanelWidget):
 
     def generate(self):
         if self.original_mesh is not None:
-            p = SliceSurfaceAlgo(self.plotter[0, 0].box_clipped_meshes[0].extract_surface(), self.original_mesh, self.plotter[0, 1])
-            p.generate_path()
+            self.algo.set_drone_waypoint_offset(self.labeled_slider1.value())
+            self.algo.set_drone_overlap_amount(self.labeled_slider2.value())
+            self.algo.set_max_height(self.range_slider_one.value()[1])
+            self.algo.set_min_height(self.range_slider_one.value()[0])
+            self.algo.set_camera_specs(
+                self.slider_camera_fov.value(),
+                self.range_slider_camera.value()[1],
+                self.range_slider_camera.value()[0],
+                int(self.camera_h_resolution.text()),
+                int(self.camera_v_resolution.text())
+            )
+            self.algo.generate_path(self.plotter[0, 0].box_clipped_meshes[0].extract_surface(), self.original_mesh)

@@ -1,7 +1,7 @@
 from PySide6.QtCore import SIGNAL
 from PySide6.QtGui import QAction, QFont
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QFileDialog
 from pyvistaqt import MainWindow
 from pages import GeneratePathPage, SelectReferencePointsPage
 from widgets import MainPanelWidget
@@ -50,6 +50,7 @@ class ApplicationMainWindow(MainWindow):
         # simple menu to demo functions
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
+        export = fileMenu.addAction('Export to simulator', self.export_to_file)
         exitButton = QAction('Exit', self)
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
@@ -59,6 +60,11 @@ class ApplicationMainWindow(MainWindow):
     def page_change(self, page):
         print("page changed to " + str(page))
         self.stackedView.setCurrentIndex(page)
+
+    def export_to_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Dialog Title', '/', selectedFilter='*.txt')
+        if fileName:
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_file(fileName)
 
     def handleDataReceived(self, data):
         print(data)
