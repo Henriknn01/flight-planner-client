@@ -5,7 +5,7 @@ import numpy as np
 import networkx as nx
 import logging
 import scipy
-
+from PySide6 import QtGui
 
 """
 
@@ -50,7 +50,7 @@ export_cameras_to_file(tsp_path_with_rotation, "C:\\Users\\Gardh\\Downloads\\Dro
 
 
 class SliceSurfaceAlgo:
-    def __init__(self, mesh, original_mesh, plotter):
+    def __init__(self, plotter):
         super().__init__()
         # Configure the basic settings for logging
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -59,13 +59,15 @@ class SliceSurfaceAlgo:
         self.logger = logging.getLogger()
 
         # Mesh
-        self.mesh = mesh
-        self.original_mesh = original_mesh
+        self.mesh = None
+        self.original_mesh = None
 
         self.plotter = plotter
         bounds = self.mesh.bounds
 
         x_min, x_max, y_min, y_max, z_min, z_max = bounds
+
+        self.rays = []
 
         # Settings for camera specs of the drone, this decides what points to eliminate based on tilt and fov
         self.camera_specs = {
@@ -86,9 +88,12 @@ class SliceSurfaceAlgo:
         self.max_height = 100
         self.min_height = -100
 
+
         # Max heigt for the drone to inspect
         self.scan_height = z_max
         self.scan_low = -100
+      
+        self.tsp_path_with_rotation = None
 
     def calculate_look_at_euler_angles(self, camera_position, target_position):
         direction = np.array(camera_position) - np.array(target_position)
@@ -188,7 +193,6 @@ class SliceSurfaceAlgo:
         tilt_delete = []
         bound_delete = []
         filter_delete = []
-        rays = []
 
         laser_points = {
             "cylinder": laser_cylinder.points,
@@ -220,7 +224,7 @@ class SliceSurfaceAlgo:
 
                 intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
                 ray = pv.Line(ray_start, ray_end)
-                rays.append(ray)
+                self.rays.append(ray)
                 if intersections.size > 0:
                     projected_point = intersections[0]  # Take the first intersection
                     plot_points.append(projected_point)
@@ -248,6 +252,15 @@ class SliceSurfaceAlgo:
 
         # PyVista plotting
         if self.logger.isEnabledFor(logging.DEBUG):
+            try:
+                plotter = pv.Plotter()
+                plotter.add_mesh(self.original_mesh, color='lightgrey')
+                plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+                for ray in self.rays[1:]:
+                    plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
+                plotter.show()
+            except:
+                pass
 
             plotter = pv.Plotter()
             plotter.add_mesh(self.original_mesh, color='lightgrey')
@@ -406,6 +419,10 @@ class SliceSurfaceAlgo:
                     file.write(
                         f"PIC,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
                 i += 1
+
+    def export_cameras_to_flight_file(self, cameras, file_path):
+        # TOOO: Implement method that writes the flight path to a drone readable file
+        pass
 
     def euclidean_distance(self, point1, point2):
         # do normal lingalg to get distance between points
@@ -588,9 +605,54 @@ class SliceSurfaceAlgo:
     def get_depth_map(self, cpos):
         return True
 
-    def generate_path(self):
+
+
+    def set_camera_specs(self, fov, max_tilt_up, max_tilt_down, h_resolution, v_resolution):
+        self.camera_specs = {
+            "fov": fov,
+            "camera_range": 30,
+            "max_tilt_up": max_tilt_up,
+            "max_tilt_down": max_tilt_down,
+            "h_resolution": h_resolution,
+            "v_resolution": v_resolution
+        }
+
+    def set_drone_waypoint_offset(self, offset: int | float):
+        self.drone_distance = offset
+
+    def set_drone_overlap_amount(self, overlap_amount: int | float):
+        self.overlap_amount = overlap_amount
+
+    def set_min_distance(self, min_distance: int | float):
+        self.min_distance = min_distance
+
+    def set_max_height(self, max_height: int | float):
+        self.max_height = max_height
+
+    def set_min_height(self, min_height: int | float):
+        self.min_height = min_height
+
+    def set_scan_height(self, scan_height: int | float):
+        self.scan_height = scan_height
+
+    def set_scan_low(self, scan_low: int | float):
+        self.scan_low = scan_low
+
+    def toggle_rays(self):
+        self.plotter.add_mesh(self.rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+        for ray in self.rays[1:]:
+            self.plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
+
+    def export_to_file(self, file_path: str):
+        self.export_cameras_to_file(self.tsp_path_with_rotation, file_path)
+
+    def generate_path(self, mesh, original_mesh):
+        self.mesh = mesh
+        self.original_mesh = original_mesh
 
         # setting up bounds of the 3d model
+        bounds = self.mesh.bounds
+
 
         # filename to export the cam positions
         # export_file = "sliced.txt"
@@ -609,5 +671,3 @@ class SliceSurfaceAlgo:
         point_cloud = [startpos] + point_cloud
         tsp_path_with_rotation, collisions = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
         self.calculate_covrage(self.camera_specs, tsp_path_with_rotation, self.min_distance, self.max_height, self.drone_distance)
-
-        # self.export_cameras_to_file(tsp_path_with_rotation, collisions,"C:\\Users\\Gardh\\Downloads\\Drone build\\sliced.txt")

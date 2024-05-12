@@ -1,35 +1,48 @@
-from PySide6.QtGui import QAction
-from PySide6 import QtWidgets
-import pyvista as pv
-from pyvistaqt import QtInteractor, MainWindow, MultiPlotter
-
-from widgets import InteractorWidget, MainPanelWidget
+from PySide6.QtCore import SIGNAL
+from PySide6.QtGui import QAction, QFont
+from PySide6 import QtWidgets, QtCore
+from PySide6.QtWidgets import QLabel, QFileDialog
+from pyvistaqt import MainWindow
+from pages import GeneratePathPage, SelectReferencePointsPage
+from widgets import MainPanelWidget
 
 SOFTWARE_VERSION = "1.0.0"
 
 
 class ApplicationMainWindow(MainWindow):
-    def __init__(self, parent=None, show=True):
+    def __init__(self, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
+        layout = QtWidgets.QVBoxLayout()
 
+        # Set the title of the application window
         self.setWindowTitle("Flight path generator v"+SOFTWARE_VERSION)
 
-        # create the frame
+        # Pag heading + styling
+        self.title = QLabel(self)
+        self.title.setText("Flight path generator")
+        self.title.setFont(QFont('Arial', 44, QFont.Bold))
+        self.title.setContentsMargins(0, 20, 0, 20)
+        layout.addWidget(self.title)
+
+        # Create the frame
         self.frame = QtWidgets.QFrame()
-        layout = QtWidgets.QHBoxLayout()
+        self.stackedView = QtWidgets.QStackedWidget()
 
-        self.plotter = MultiPlotter(ncols=2, show=False)  # QtInteractor(self.frame)
-        self.plot1 = InteractorWidget(self.plotter[0, 0], "Model preview - select scan section")
-        layout.addWidget(self.plot1)
+        # Set up pages
+        self.selectReferencePointsPage = SelectReferencePointsPage()
+        self.selectReferencePointsPage.mainPanelWidgetInstance.page_changed.connect(self.page_change)
+        self.generatePage = GeneratePathPage()
+        self.generatePage.mainPanelWidgetInstance.page_changed.connect(self.page_change)
+        self.selectReferencePointsPage.mainPanelWidgetInstance.model_uploaded.connect(self.generatePage.mainPanelWidgetInstance.set_plotter_model)
 
-        self.plot2 = InteractorWidget(self.plotter[0, 1], "Generated Flight Path")
-        layout.addWidget(self.plot2)
+        # Add widgets to view
+        self.stackedView.addWidget(self.generatePage)
+        self.stackedView.addWidget(self.selectReferencePointsPage)
 
-        self.signal_close.connect(self.plotter.close)
+        # Set the current widget displayed to the user
+        self.stackedView.setCurrentWidget(self.selectReferencePointsPage)
 
-        self.mainPanelWidgetInstance = MainPanelWidget(self.plotter)
-        self.mainPanelWidgetInstance.setMaximumWidth(int(self.width()*0.66))
-        layout.addWidget(self.mainPanelWidgetInstance)
+        layout.addWidget(self.stackedView)
 
         self.frame.setLayout(layout)
         self.setCentralWidget(self.frame)
@@ -37,22 +50,21 @@ class ApplicationMainWindow(MainWindow):
         # simple menu to demo functions
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
+        export = fileMenu.addAction('Export to simulator', self.export_to_file)
         exitButton = QAction('Exit', self)
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
         fileMenu.addAction(exitButton)
 
-        # allow adding a sphere
-        meshMenu = mainMenu.addMenu('Mesh')
-        self.add_sphere_action = QAction('Add Sphere', self)
-        self.add_sphere_action.triggered.connect(self.add_sphere)
-        meshMenu.addAction(self.add_sphere_action)
+    @QtCore.Slot(int)
+    def page_change(self, page):
+        print("page changed to " + str(page))
+        self.stackedView.setCurrentIndex(page)
 
-        if show:
-            self.show()
+    def export_to_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Dialog Title', '/', selectedFilter='*.txt')
+        if fileName:
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_file(fileName)
 
-    def add_sphere(self):
-        """ add a sphere to the pyqt frame """
-        sphere = pv.Sphere()
-        self.plotter[0, 0].add_mesh(sphere, show_edges=True)
-        self.plotter[0, 0].reset_camera()
+    def handleDataReceived(self, data):
+        print(data)
