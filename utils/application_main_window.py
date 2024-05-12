@@ -1,9 +1,10 @@
+from PySide6.QtCore import SIGNAL
 from PySide6.QtGui import QAction, QFont
-from PySide6 import QtWidgets
-from PySide6.QtWidgets import QLabel
-import pyvista as pv
+from PySide6 import QtWidgets, QtCore
+from PySide6.QtWidgets import QLabel, QFileDialog
 from pyvistaqt import MainWindow
-from utils.page import GeneratePathPage
+from pages import GeneratePathPage, SelectReferencePointsPage
+from widgets import MainPanelWidget
 
 SOFTWARE_VERSION = "1.0.0"
 
@@ -28,13 +29,18 @@ class ApplicationMainWindow(MainWindow):
         self.stackedView = QtWidgets.QStackedWidget()
 
         # Set up pages
+        self.selectReferencePointsPage = SelectReferencePointsPage()
+        self.selectReferencePointsPage.mainPanelWidgetInstance.page_changed.connect(self.page_change)
         self.generatePage = GeneratePathPage()
+        self.generatePage.mainPanelWidgetInstance.page_changed.connect(self.page_change)
+        self.selectReferencePointsPage.mainPanelWidgetInstance.model_uploaded.connect(self.generatePage.mainPanelWidgetInstance.set_plotter_model)
 
         # Add widgets to view
         self.stackedView.addWidget(self.generatePage)
+        self.stackedView.addWidget(self.selectReferencePointsPage)
 
         # Set the current widget displayed to the user
-        self.stackedView.setCurrentWidget(self.generatePage)
+        self.stackedView.setCurrentWidget(self.selectReferencePointsPage)
 
         layout.addWidget(self.stackedView)
 
@@ -44,7 +50,21 @@ class ApplicationMainWindow(MainWindow):
         # simple menu to demo functions
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
+        export = fileMenu.addAction('Export to simulator', self.export_to_file)
         exitButton = QAction('Exit', self)
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
         fileMenu.addAction(exitButton)
+
+    @QtCore.Slot(int)
+    def page_change(self, page):
+        print("page changed to " + str(page))
+        self.stackedView.setCurrentIndex(page)
+
+    def export_to_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Dialog Title', '/', selectedFilter='*.txt')
+        if fileName:
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_file(fileName)
+
+    def handleDataReceived(self, data):
+        print(data)

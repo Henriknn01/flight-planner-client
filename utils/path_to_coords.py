@@ -243,6 +243,26 @@ class BasePoint:
     def __str__(self):
         return f"{self.position}, {self.gps_position}, alt: {self.altitude}"
 
+    def set_x(self, x: float):
+        self.position.set_x(x)
+
+    def set_y(self, y: float):
+        self.position.set_y(y)
+
+    def set_z(self, z: float):
+        self.position.set_z(z)
+
+    def set_lat(self, lat: float):
+        self.gps_position.set_lat(lat)
+
+    def set_long(self, long: float):
+        self.gps_position.set_long(long)
+
+    def set_altitude(self, altitude: float):
+        if altitude < 0:
+            raise ValueError("Altitude must be greater than or equal to zero.")
+        self.altitude = altitude
+
     @staticmethod
     def gps_to_cartesian(lat: float, long: float, altitude: float = 0.0) -> Tuple[float, float, float]:
         """
