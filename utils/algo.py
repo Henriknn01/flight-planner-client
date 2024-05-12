@@ -63,6 +63,9 @@ class SliceSurfaceAlgo:
         self.original_mesh = None
 
         self.plotter = plotter
+        bounds = self.mesh.bounds
+
+        x_min, x_max, y_min, y_max, z_min, z_max = bounds
 
         self.rays = []
 
@@ -70,25 +73,26 @@ class SliceSurfaceAlgo:
         self.camera_specs = {
             "fov": 40,
             "camera_range": 30,
-            "max_tilt_up": 150,
+            "max_tilt_up": 140,
             "max_tilt_down": -90,
             "h_resolution": 1920,
             "v_resolution": 1080
         }
 
         # Distance from the ship hull, this determines how many pictures is needed, and the resolution
-        self.drone_distance = 2
+        self.drone_distance = 2.5
         self.overlap_amount = 0.1  # overlap makes the points slightly closer
         self.min_distance = 1  # distance from the ship, if inside the box of 2 meters it will be deleted
 
         # Max height for the drone to fly
-        self.max_height = 21
-        self.min_height = -10
+        self.max_height = 100
+        self.min_height = -100
 
-        # Max height for the drone to inspect
-        self.scan_height = 6
-        self.scan_low = 0
 
+        # Max heigt for the drone to inspect
+        self.scan_height = z_max
+        self.scan_low = -100
+      
         self.tsp_path_with_rotation = None
 
     def calculate_look_at_euler_angles(self, camera_position, target_position):
@@ -119,26 +123,37 @@ class SliceSurfaceAlgo:
 
         return pitch, yaw, roll
 
-    def find_center_of_bulbus_hull(self, multi_block, y_max, z_min):
+    def find_center_of_bulbus_hull(self, y_max, z_min):
         # so plan is, do ray cast, in a straight line down middle, find the shortest ray, thats the center of bulb
         # then find the local minimum upwards thats the end of bulb
         # then find where its higher then local minimum downwards thats the end of the other side
         # thus we find center in y direction aswell.
         bulbus_hull_rays = []
         best_distance = 10000
+        improved = True
         best_point = None
-        for ray_z_level in np.arange(self.mesh.center[2], z_min, -0.3):
-            ray_start = [0, y_max + 2, ray_z_level]
-            ray_end = [0, self.mesh.center[1], ray_z_level]
-            intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
-            bulb_ray = pv.Line(ray_start, ray_end)
-            bulbus_hull_rays.append(bulb_ray)
-            if intersections.size > 0:
-                projected_point = intersections[0]
-                distance = self.euclidean_distance(projected_point, ray_start)
-                if distance < best_distance:
-                    best_distance = distance
-                    best_point = projected_point
+        max_tries = len(np.arange(z_min, self.mesh.center[2], 0.3))
+        tries_done = 0
+        while improved:
+            improved = False
+            for ray_z_level in np.arange(z_min, self.mesh.center[2], 0.3):
+                ray_start = [0, y_max + 2, ray_z_level]
+                ray_end = [0, self.mesh.center[1], ray_z_level]
+                intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
+                bulb_ray = pv.Line(ray_start, ray_end)
+                bulbus_hull_rays.append(bulb_ray)
+                if intersections.size > 0:
+                    projected_point = intersections[0]
+                    distance = self.euclidean_distance(projected_point, ray_start)
+                    if distance <= best_distance:
+                        best_distance = distance
+                        best_point = projected_point
+                        improved = True
+                    else:
+                        break
+            if tries_done > max_tries:
+                break
+            tries_done += 1
 
         if self.logger.isEnabledFor(logging.DEBUG):
             try:
@@ -161,11 +176,13 @@ class SliceSurfaceAlgo:
         v_res = ((abs(x_min) + x_max) / (vertical_spacing / 2.2))
         self.logger.debug(f"z_res: {z_res}, v_res: {v_res}")
 
-        bulb_z_height = self.find_center_of_bulbus_hull(multi_block, y_max, z_min)
+        bulb_z_height = self.find_center_of_bulbus_hull(y_max, z_min)
+
 
         laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
                                                radius=((x_max - x_min) / 2) * 2, height=self.mesh.length,
                                                theta_resolution=int(v_res), z_resolution=int(z_res))
+
         wave_breaker_laser = pv.Sphere(center=(self.mesh.center[0], y_max - 2, bulb_z_height[2]),
                                        direction=(1, 0, 0), radius=10, theta_resolution=5, phi_resolution=5)
 
@@ -245,27 +262,111 @@ class SliceSurfaceAlgo:
             except:
                 pass
 
-            try:
-                pointplot = pv.Plotter()
-                pointplot.add_mesh(self.original_mesh, color='lightgrey')
-                pointplot.add_points(pv.PolyData(displaced_points), color='red', point_size=5, opacity=0.5)
-                pointplot.add_points(pv.PolyData(plot_points), color='green', point_size=5, opacity=0.5)
-                pointplot.show()
-            except:
-                pass
+            plotter = pv.Plotter()
+            plotter.add_mesh(self.original_mesh, color='lightgrey')
+            plotter.add_mesh(rays[0], color="blue", line_width=5, label="Ray Segments", opacity=0.5)
+            for ray in rays[1:]:
+                plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
+            plotter.show()
 
-            try:
-                deleted_plotter = pv.Plotter()
-                deleted_plotter.add_mesh(self.original_mesh, color='lightgrey')
-                deleted_plotter.add_points(pv.PolyData(bound_delete), color='red', point_size=5, opacity=0.5)
-                if len(filter_delete) > 0:
-                    deleted_plotter.add_points(pv.PolyData(filter_delete), color='orange', point_size=5, opacity=0.5)
-                deleted_plotter.add_points(pv.PolyData(tilt_delete), color='green', point_size=5, opacity=0.5)
-                deleted_plotter.show()
-            except:
-                pass
+
+            pointplot = pv.Plotter()
+            pointplot.add_mesh(self.original_mesh, color='lightgrey')
+            pointplot.add_points(pv.PolyData(displaced_points), color='red', point_size=5, opacity=0.5)
+            pointplot.add_points(pv.PolyData(plot_points), color='green', point_size=5, opacity=0.5)
+            pointplot.show()
+
+
+
+            deleted_plotter = pv.Plotter()
+            deleted_plotter.add_mesh(self.original_mesh, color='lightgrey')
+            deleted_plotter.add_points(pv.PolyData(bound_delete), color='red', point_size=5, opacity=0.5)
+            if len(filter_delete) > 0:
+                deleted_plotter.add_points(pv.PolyData(filter_delete), color='orange', point_size=5, opacity=0.5)
+            deleted_plotter.add_points(pv.PolyData(tilt_delete), color='green', point_size=5, opacity=0.5)
+            deleted_plotter.show()
 
         return cameras
+
+    def rotation_from_angles(self, angles):
+        pitch, yaw, roll = np.radians(angles)
+
+        # Create rotation matrices for each axis
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(pitch), -np.sin(pitch)],
+            [0, np.sin(pitch), np.cos(pitch)]
+        ])
+
+        Ry = np.array([
+            [np.cos(yaw), 0, np.sin(yaw)],
+            [0, 1, 0],
+            [-np.sin(yaw), 0, np.cos(yaw)]
+        ])
+
+        Rz = np.array([
+            [np.cos(roll), -np.sin(roll), 0],
+            [np.sin(roll), np.cos(roll), 0],
+            [0, 0, 1]
+        ])
+
+        # Combine rotations. The order depends on the specific convention being used.
+        # Here, the order is Roll -> Pitch -> Yaw (commonly used in aerospace)
+        R = Rz @ Ry @ Rx
+
+        return R
+
+    def direction_vector_calculation(self, camera_rotation):
+        # Assuming the FOV is both horizontal and vertical
+        x_span = np.tan(np.radians(self.camera_specs["fov"] / 2)) * (
+                    self.camera_specs["h_resolution"] / self.camera_specs["v_resolution"])
+        y_span = np.tan(np.radians(self.camera_specs["fov"] / 2))
+
+        # Create a grid of directions
+        x = np.linspace(-x_span, x_span, self.camera_specs["h_resolution"])
+        y = np.linspace(-y_span, y_span, self.camera_specs["v_resolution"])
+        xx, yy = np.meshgrid(x, y)
+        zz = -np.ones_like(xx)
+
+        # Normalize the direction vectors
+        directions = np.stack((xx, yy, zz), axis=-1)
+        norms = np.linalg.norm(directions, axis=-1, keepdims=True)
+        directions /= norms
+
+        # Rotate the directions according to the camera rotation
+        # This depends on how you define rotations and might involve converting angles to a rotation matrix
+        rotation_matrix = self.rotation_from_angles(camera_rotation)
+        directions = directions @ rotation_matrix.T
+
+    def calculate_covrage(self, camera_specs, picture_locations, z_min_filter, z_max_filter, distance):
+        covrage_points = []
+        x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
+
+        laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
+                                               radius=((x_max - x_min) / 2) * 2, height=self.mesh.length,
+                                               theta_resolution=100, z_resolution=100)
+
+        for point in laser_cylinder.points:
+            ray_start = point
+            ray_end = [self.mesh.center[0], point[1], self.mesh.center[2]]
+            intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
+            if intersections.size > 0:
+                projected_point = intersections[0]  # Take the first intersection
+                closest_point_id = self.mesh.find_closest_point(projected_point)
+                point_normal = self.mesh.point_normals[closest_point_id]
+                displaced_point = projected_point + point_normal * distance
+                if displaced_point[2] < z_min_filter or displaced_point[2] > z_max_filter:
+                    continue
+                covrage_points.append(projected_point)
+
+
+
+        for location in picture_locations:
+            ray_start = location[0]
+
+
+
+
 
     def check_for_camerapos_to_close_to_3dmodel(self, point, mesh, min_distance):
         # This checks for collision using raytrace in a star formation, This is a fast method to check for any intersections
@@ -305,12 +406,19 @@ class SliceSurfaceAlgo:
 
         return horizontal_distance - overlap_amount, vertical_distance - overlap_amount
 
-    def export_cameras_to_file(self, cameras, file_path):
+    def export_cameras_to_file(self, cameras, collision_move, file_path):
+        self.logger.debug("Writing camera positins to file")
         # Exports the list with pos and angles to a txt file
+        i = 0
         with open(file_path, 'w') as file:
             for position, euler_angles in cameras:
-                file.write(
-                    f"PIC,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
+                if i in collision_move:
+                    file.write(
+                        f"MOV,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
+                else:
+                    file.write(
+                        f"PIC,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
+                i += 1
 
     def export_cameras_to_flight_file(self, cameras, file_path):
         # TOOO: Implement method that writes the flight path to a drone readable file
@@ -335,6 +443,7 @@ class SliceSurfaceAlgo:
         visited = set()  # Keep track of visited nodes
         path_indices = []
         collisions = []
+        collision_index = []
         # Determine the starting node based on the provided start_point
         if start_point:
             start_index = self.find_closest_node(start_point[0], points_with_rotation)
@@ -343,7 +452,6 @@ class SliceSurfaceAlgo:
 
         path_indices.append(start_index)
         visited.add(start_index)
-        rays = []
         while len(visited) < len(points_with_rotation):
             last_index = path_indices[-1]
             shortest_distance = float('inf')
@@ -368,8 +476,6 @@ class SliceSurfaceAlgo:
             point, collision = self.check_for_collisions(points_with_rotation[last_index][0],
                                                     points_with_rotation[next_index][0], multi_block)
             if collision:
-                print(
-                    f"collision betwween: {last_index} and {next_index}, which will be inserted as {len(path_indices)}")
                 insert_point = len(path_indices) - 1
                 collisions.append([insert_point, point])
 
@@ -377,24 +483,58 @@ class SliceSurfaceAlgo:
         i = 0
         for coll in collisions:
             path.insert((coll[0]) + i, coll[1])
-            print(f"added: {coll[1]} at location {coll[0] + i}")
+            self.logger.debug(f"added: {coll[1]} at location {coll[0] + i}")
             i += 1
 
+        times_checked_collisions = 0
+        collision_flag = True
+        while collision_flag == True:
+            if times_checked_collisions > 4:
+                collision_flag = True
+                break
+            collision_rerun_array = []
+            for k in range(len(path) - 1):
+                current_point = path[k][0]
+                next_point = path[k + 1][0]
+                point, collision = self.check_for_collisions(current_point, next_point, multi_block)
+                if collision:
+                    collision_rerun_array.append([k, point])
+            if len(collision_rerun_array) > 0:
+                collision_flag = True
+                l = 0
+                for coll in collision_rerun_array:
+                    path.insert((coll[0] + l + 1), coll[1])
+                    collision_index.append((coll[0]) + l + 1)
+                    l += 1
+
+
+
+            else:
+                collision_flag = False
+            times_checked_collisions += 1
+
+        if collision_flag == True:
+            self.logger.error("Path without collisions where not found")
+            path = []
         try:
             first_elements = [sublist[0] for sublist in path if sublist]
-            for i in range(len(first_elements) - 1):
-                ray = pv.Line(first_elements[i], first_elements[i + 1])
-                rays.append(ray)
+            n_points = len(first_elements)
+            lines = []
+            for i in range(n_points - 1):
+                lines.extend([2, i, i + 1])
+            lines = np.array(lines)
+            line_polydata = pv.PolyData()
+            line_polydata.points = first_elements
+            line_polydata.lines = lines
             self.plotter.clear_actors()
             self.plotter.add_text("Generated Flight Path")
             self.plotter.add_mesh(self.original_mesh, color='lightgrey')
             self.plotter.add_points(pv.PolyData(first_elements), color='red', point_size=5, opacity=0.5)
-            for ray1 in rays:
-                self.plotter.add_mesh(ray1, color="blue", line_width=5, opacity=0.5)
+            self.plotter.add_mesh(line_polydata, color="blue", line_width=5, opacity=0.5)
         except:
             pass
 
-        return path
+        return path, collision_index
 
     def check_for_collisions(self, point1, point2, multi_block):
         # Chjeck if there are any intersections between two points using ray tracing
@@ -413,7 +553,7 @@ class SliceSurfaceAlgo:
             # Normalize the direction vector
             norm = np.linalg.norm(direction_vector)
             if norm == 0:
-                raise ValueError("The two points are identical, cannot determine direction.")
+                self.logger.warning("The two points are identical, cannot find dirction")
             normalized_vector = direction_vector / norm
 
             # Displace the point p1 by delta in the direction of the normalized vector
@@ -465,6 +605,8 @@ class SliceSurfaceAlgo:
     def get_depth_map(self, cpos):
         return True
 
+
+
     def set_camera_specs(self, fov, max_tilt_up, max_tilt_down, h_resolution, v_resolution):
         self.camera_specs = {
             "fov": fov,
@@ -511,6 +653,7 @@ class SliceSurfaceAlgo:
         # setting up bounds of the 3d model
         bounds = self.mesh.bounds
 
+
         # filename to export the cam positions
         # export_file = "sliced.txt"
 
@@ -524,8 +667,7 @@ class SliceSurfaceAlgo:
 
         startpos = self.get_start_pos_based_on_model(self.mesh, 5)
 
-        # optional_nodes = get_optional_nodes_from_model(bounds)
 
         point_cloud = [startpos] + point_cloud
-
-        self.tsp_path_with_rotation = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
+        tsp_path_with_rotation, collisions = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
+        self.calculate_covrage(self.camera_specs, tsp_path_with_rotation, self.min_distance, self.max_height, self.drone_distance)
