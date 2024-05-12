@@ -71,14 +71,14 @@ class SliceSurfaceAlgo:
         self.camera_specs = {
             "fov": 40,
             "camera_range": 30,
-            "max_tilt_up": 180,
+            "max_tilt_up": 140,
             "max_tilt_down": -90,
             "h_resolution": 1920,
             "v_resolution": 1080
         }
 
         # Distance from the ship hull, this determines how many pictures is needed, and the resolution
-        self.drone_distance = 4
+        self.drone_distance = 2.5
         self.overlap_amount = 0.1  # overlap makes the points slightly closer
         self.min_distance = 1  # distance from the ship, if inside the box of 2 meters it will be deleted
 
@@ -275,6 +275,86 @@ class SliceSurfaceAlgo:
 
         return cameras
 
+    def rotation_from_angles(self, angles):
+        pitch, yaw, roll = np.radians(angles)
+
+        # Create rotation matrices for each axis
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(pitch), -np.sin(pitch)],
+            [0, np.sin(pitch), np.cos(pitch)]
+        ])
+
+        Ry = np.array([
+            [np.cos(yaw), 0, np.sin(yaw)],
+            [0, 1, 0],
+            [-np.sin(yaw), 0, np.cos(yaw)]
+        ])
+
+        Rz = np.array([
+            [np.cos(roll), -np.sin(roll), 0],
+            [np.sin(roll), np.cos(roll), 0],
+            [0, 0, 1]
+        ])
+
+        # Combine rotations. The order depends on the specific convention being used.
+        # Here, the order is Roll -> Pitch -> Yaw (commonly used in aerospace)
+        R = Rz @ Ry @ Rx
+
+        return R
+
+    def direction_vector_calculation(self, camera_rotation):
+        # Assuming the FOV is both horizontal and vertical
+        x_span = np.tan(np.radians(self.camera_specs["fov"] / 2)) * (
+                    self.camera_specs["h_resolution"] / self.camera_specs["v_resolution"])
+        y_span = np.tan(np.radians(self.camera_specs["fov"] / 2))
+
+        # Create a grid of directions
+        x = np.linspace(-x_span, x_span, self.camera_specs["h_resolution"])
+        y = np.linspace(-y_span, y_span, self.camera_specs["v_resolution"])
+        xx, yy = np.meshgrid(x, y)
+        zz = -np.ones_like(xx)
+
+        # Normalize the direction vectors
+        directions = np.stack((xx, yy, zz), axis=-1)
+        norms = np.linalg.norm(directions, axis=-1, keepdims=True)
+        directions /= norms
+
+        # Rotate the directions according to the camera rotation
+        # This depends on how you define rotations and might involve converting angles to a rotation matrix
+        rotation_matrix = self.rotation_from_angles(camera_rotation)
+        directions = directions @ rotation_matrix.T
+
+    def calculate_covrage(self, camera_specs, picture_locations, z_min_filter, z_max_filter, distance):
+        covrage_points = []
+        x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
+
+        laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
+                                               radius=((x_max - x_min) / 2) * 2, height=self.mesh.length,
+                                               theta_resolution=100, z_resolution=100)
+
+        for point in laser_cylinder.points:
+            ray_start = point
+            ray_end = [self.mesh.center[0], point[1], self.mesh.center[2]]
+            intersections = self.mesh.ray_trace(ray_start, ray_end)[0]
+            if intersections.size > 0:
+                projected_point = intersections[0]  # Take the first intersection
+                closest_point_id = self.mesh.find_closest_point(projected_point)
+                point_normal = self.mesh.point_normals[closest_point_id]
+                displaced_point = projected_point + point_normal * distance
+                if displaced_point[2] < z_min_filter or displaced_point[2] > z_max_filter:
+                    continue
+                covrage_points.append(projected_point)
+
+
+
+        for location in picture_locations:
+            ray_start = location[0]
+
+
+
+
+
     def check_for_camerapos_to_close_to_3dmodel(self, point, mesh, min_distance):
         # This checks for collision using raytrace in a star formation, This is a fast method to check for any intersections
         # where we shoot a ray out in most directions and checks for a intersect in the min distance value
@@ -409,6 +489,9 @@ class SliceSurfaceAlgo:
                     path.insert((coll[0] + l + 1), coll[1])
                     collision_index.append((coll[0]) + l + 1)
                     l += 1
+
+
+
             else:
                 collision_flag = False
             times_checked_collisions += 1
@@ -525,5 +608,6 @@ class SliceSurfaceAlgo:
 
         point_cloud = [startpos] + point_cloud
         tsp_path_with_rotation, collisions = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
+        self.calculate_covrage(self.camera_specs, tsp_path_with_rotation, self.min_distance, self.max_height, self.drone_distance)
 
         # self.export_cameras_to_file(tsp_path_with_rotation, collisions,"C:\\Users\\Gardh\\Downloads\\Drone build\\sliced.txt")
