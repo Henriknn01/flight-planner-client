@@ -367,6 +367,7 @@ class SliceSurfaceAlgo:
                 if displaced_point[2] < z_min_filter or displaced_point[2] > z_max_filter:
                     continue
                 coverage_points.append(projected_point)
+        amount_of_points = len(coverage_points)
 
         for location in picture_locations:
             fov = math.radians(self.camera_specs["fov"])
@@ -417,7 +418,6 @@ class SliceSurfaceAlgo:
             frustum_mesh.transform(transformation_matrix, inplace=True)
 
             frustum_mesh.triangulate(inplace=True)
-
             coverage_points = pv.PolyData(coverage_points)  # Convert NumPy array to PyVista PolyData
 
             selection = coverage_points.select_enclosed_points(frustum_mesh)
@@ -443,6 +443,11 @@ class SliceSurfaceAlgo:
 
         tplotter = pv.Plotter()
         tplotter.add_mesh(self.original_mesh)
+        tplotter.add_text(f"""{round((len(seen_points.keys())/amount_of_points)*100, 2)}% covrage
+        camera distance: {self.drone_distance}
+        overlap amount: {self.overlap_amount}
+        camera tilt range: {self.camera_specs["max_tilt_down"]}, {self.camera_specs["max_tilt_up"]}
+        camera FOV: {self.camera_specs["fov"]}""", position="upper_right", color="blue", font_size=16)
         tplotter.add_mesh(point_cloud, scalars='counts', cmap=boring_cmap, point_size=15)
         tplotter.show()
 
