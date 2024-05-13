@@ -1,5 +1,5 @@
 import pyvista
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot, QPointF
 from PySide6.QtGui import QFont, QDoubleValidator, QIntValidator, QRegularExpressionValidator
 from PySide6.QtWidgets import QWidget, QCheckBox, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QLineEdit
 from superqt import QLabeledRangeSlider, QLabeledSlider, QLabeledDoubleSlider
@@ -7,7 +7,7 @@ from superqt import QLabeledRangeSlider, QLabeledSlider, QLabeledDoubleSlider
 from utils.path_to_coords import ReferencePoint
 from utils.simple_path import SimplePath
 from utils.algo import SliceSurfaceAlgo
-
+from typing import Tuple
 
 class InteractorWidget(QWidget):
     def __init__(self, plotter, top_text=None):
@@ -127,6 +127,7 @@ class PanelWidget(QWidget):
             self.model_uploaded.emit(hull)
 
 class SelectReferencePointsWidget(PanelWidget):
+    reference_points_changed = Signal(object)
     def __init__(self, plotter):
         super().__init__()
         self.layout = QVBoxLayout()
@@ -227,11 +228,12 @@ class SelectReferencePointsWidget(PanelWidget):
 
         self.setLayout(self.layout)
 
+    def set_reference_points(self):
+        self.reference_points_changed.emit([self.ref1_widget.reference_point, self.ref2_widget.reference_point, self.ref3_widget.reference_point] )
+
     def next(self):
-        print(self.ref1_widget.reference_point)
-        print(self.ref2_widget.reference_point)
-        print(self.ref3_widget.reference_point)
         self.change_page(0)
+        self.set_reference_points()
 
     def pick_callback(self, point):
         self.selected_point = point
@@ -362,6 +364,8 @@ class MainPanelWidget(PanelWidget):
 
         self.algo = SliceSurfaceAlgo(self.plotter[0, 1])
 
+        self.reference_points: Tuple[ReferencePoint, ReferencePoint, ReferencePoint] = None
+
     def back(self):
         self.change_page(1)
 
@@ -373,6 +377,15 @@ class MainPanelWidget(PanelWidget):
         self.plotter[0, 0].add_mesh_clip_box(hull, cmap="terrain", lighting=True)
         # self.plotter[0, 0].add_callback(self.generate)
         self.plotter[0, 0].reset_camera()
+
+    @Slot(object)
+    def set_reference_points(self, reference_points: Tuple[ReferencePoint, ReferencePoint, ReferencePoint]):
+        self.reference_points = reference_points
+        print("Reference points: "
+              "\n    ReferencePoint 1: " + str(self.reference_points[0]),
+              "\n    ReferencePoint 2: " + str(self.reference_points[1]),
+              "\n    ReferencePoint 3: " + str(self.reference_points[2])
+              )
 
     def generate(self):
         if self.original_mesh is not None:
@@ -387,4 +400,4 @@ class MainPanelWidget(PanelWidget):
                 int(self.camera_h_resolution.text()),
                 int(self.camera_v_resolution.text())
             )
-            self.algo.generate_path(self.plotter[0, 0].box_clipped_meshes[0].extract_surface(), self.original_mesh)
+            self.algo.generate_path(self.plotter[0, 0].box_clipped_meshes[0].extract_surface(), self.original_mesh, self.reference_points)

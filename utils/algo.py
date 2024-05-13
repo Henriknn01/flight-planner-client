@@ -6,6 +6,8 @@ import networkx as nx
 import logging
 import scipy
 from PySide6 import QtGui
+from typing import Tuple
+from utils.path_to_coords import ReferencePoint, PathPoint
 
 """
 
@@ -61,6 +63,9 @@ class SliceSurfaceAlgo:
         # Mesh
         self.mesh = None
         self.original_mesh = None
+
+        # Reference points
+        self.reference_points: Tuple[ReferencePoint] = None
 
         self.plotter = plotter
         # bounds = self.mesh.bounds
@@ -420,9 +425,24 @@ class SliceSurfaceAlgo:
                         f"PIC,{position[0]},{position[1]},{position[2]},{euler_angles[0]},{euler_angles[1]},{euler_angles[2]}\n")
                 i += 1
 
-    def export_cameras_to_flight_file(self, cameras, file_path):
+    def export_cameras_to_flight_file(self, cameras, collision_move, file_path):
         # TOOO: Implement method that writes the flight path to a drone readable file
-        pass
+        self.logger.debug("Writing camera positins to fligth file")
+        # Exports the list with gps pos and angles to a txt file
+        points = []
+        i = 0
+        for position, euler_angles in cameras:
+            p = PathPoint(position[0], position[1], position[2])
+            gps_pos = p.get_gps_pos_from_reference_points(self.reference_points[0],
+                                                          self.reference_points[1],
+                                                          self.reference_points[2])
+            p.set_lat(gps_pos.get_lat()), p.set_long(gps_pos.get_long())
+            points.append(p)
+        with open(file_path, 'w') as file:
+            for p in points:
+                file.write(f"[{p.gps_position.get_lat()}, {p.gps_position.get_long()}], {p.get_altitude(self.reference_points[0], self.reference_points[1])}\n")
+
+
 
     def euclidean_distance(self, point1, point2):
         # do normal lingalg to get distance between points
@@ -641,12 +661,16 @@ class SliceSurfaceAlgo:
         for ray in self.rays[1:]:
             self.plotter.add_mesh(ray, color="blue", line_width=5, opacity=0.5)
 
-    def export_to_file(self, file_path: str):
-        self.export_cameras_to_file(self.tsp_path_with_rotation, file_path)
+    def export_to_sim_file(self, file_path: str):
+        self.export_cameras_to_file(self.tsp_path_with_rotation, self.collisions, file_path[0]+".txt")
 
-    def generate_path(self, mesh, original_mesh):
+    def export_to_gps_file(self, file_path: str):
+        self.export_cameras_to_flight_file(self.tsp_path_with_rotation, self.collisions, file_path[0]+".txt")
+
+    def generate_path(self, mesh, original_mesh, reference_points):
         self.mesh = mesh
         self.original_mesh = original_mesh
+        self.reference_points = reference_points
 
         # setting up bounds of the 3d model
         bounds = self.mesh.bounds
@@ -670,5 +694,5 @@ class SliceSurfaceAlgo:
 
 
         point_cloud = [startpos] + point_cloud
-        tsp_path_with_rotation, collisions = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
-        self.calculate_covrage(self.camera_specs, tsp_path_with_rotation, self.min_distance, self.max_height, self.drone_distance)
+        self.tsp_path_with_rotation, self.collisions = self.tsp_with_weight_calculation(point_cloud, 5, 1, self.mesh)
+        self.calculate_covrage(self.camera_specs, self.tsp_path_with_rotation, self.min_distance, self.max_height, self.drone_distance)

@@ -34,6 +34,7 @@ class ApplicationMainWindow(MainWindow):
         self.generatePage = GeneratePathPage()
         self.generatePage.mainPanelWidgetInstance.page_changed.connect(self.page_change)
         self.selectReferencePointsPage.mainPanelWidgetInstance.model_uploaded.connect(self.generatePage.mainPanelWidgetInstance.set_plotter_model)
+        self.selectReferencePointsPage.mainPanelWidgetInstance.reference_points_changed.connect(self.generatePage.mainPanelWidgetInstance.set_reference_points)
 
         # Add widgets to view
         self.stackedView.addWidget(self.generatePage)
@@ -50,7 +51,8 @@ class ApplicationMainWindow(MainWindow):
         # simple menu to demo functions
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
-        export = fileMenu.addAction('Export to simulator', self.export_to_file)
+        export = fileMenu.addAction('Export to simulator', self.export_to_sim_file)
+        export_gps = fileMenu.addAction('Export gps data', self.export_to_gps_file)
         exitButton = QAction('Exit', self)
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
@@ -61,10 +63,15 @@ class ApplicationMainWindow(MainWindow):
         print("page changed to " + str(page))
         self.stackedView.setCurrentIndex(page)
 
-    def export_to_file(self):
-        fileName = QFileDialog.getSaveFileName(self, 'Dialog Title', '/', selectedFilter='*.txt')
+    def export_to_sim_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save path to simulator file', '/', selectedFilter='*.txt')
         if fileName:
-            self.generatePage.mainPanelWidgetInstance.algo.export_to_file(fileName)
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_sim_file(fileName)
+
+    def export_to_gps_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save path to simulator file', '/', selectedFilter='*.txt')
+        if fileName:
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_gps_file(fileName)
 
     def handleDataReceived(self, data):
         print(data)

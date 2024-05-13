@@ -319,6 +319,14 @@ class PathPoint(BasePoint):
         super().__init__(x, y, z, lat=0.0, long=0.0, altitude=0.0)
         # TODO: add direction/orientation
 
+    def get_altitude(self, ref1: ReferencePoint, ref2: ReferencePoint) -> float:
+        # TODO: implement mehtod that takes into account the hull offset from the ground and the height of the ship.
+        # Note: This is just a dummy method and wil return false altitude
+        # This method does not take into account if the bottom of the ship has a negative y value,
+        # if so then all altitudes will be wrong.
+        conversion_factor = ref1.get_conversion_factor(ref2)*1000  # *1000 to convert units from km to m
+        return abs(self.position.get_y())*conversion_factor
+
     def get_gps_pos_from_reference_points(self, ref1: ReferencePoint, ref2: ReferencePoint, ref3: ReferencePoint) -> GPSCoordinate:
         """
         Get a GPS coordinate from three reference points.
