@@ -1,10 +1,14 @@
 import heapq
 import math
+import time
+
 import pyvista as pv
 import numpy as np
 import networkx as nx
 import logging
 import scipy
+import matplotlib.pyplot as plt
+
 from PySide6 import QtGui
 
 """
@@ -53,7 +57,7 @@ class SliceSurfaceAlgo:
     def __init__(self, plotter):
         super().__init__()
         # Configure the basic settings for logging
-        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
         # Get the root logger
         self.logger = logging.getLogger()
@@ -72,7 +76,7 @@ class SliceSurfaceAlgo:
         # Settings for camera specs of the drone, this decides what points to eliminate based on tilt and fov
         self.camera_specs = {
             "fov": 40,
-            "camera_range": 30,
+            "camera_range": 3,
             "max_tilt_up": 140,
             "max_tilt_down": -90,
             "h_resolution": 1920,
@@ -343,7 +347,8 @@ class SliceSurfaceAlgo:
         directions = directions @ rotation_matrix.T
 
     def calculate_covrage(self, camera_specs, picture_locations, z_min_filter, z_max_filter, distance):
-        covrage_points = []
+        coverage_points = []
+        seen_points = {}
         x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
 
         laser_cylinder = pv.CylinderStructured(center=self.mesh.center, direction=(0, 1, 0),
@@ -361,13 +366,85 @@ class SliceSurfaceAlgo:
                 displaced_point = projected_point + point_normal * distance
                 if displaced_point[2] < z_min_filter or displaced_point[2] > z_max_filter:
                     continue
-                covrage_points.append(projected_point)
-
-
+                coverage_points.append(projected_point)
 
         for location in picture_locations:
-            ray_start = location[0]
+            fov = math.radians(self.camera_specs["fov"])
+            aspect_ratio = self.camera_specs["h_resolution"] / self.camera_specs["v_resolution"]
+            near_clip = 0.5  # Adjust as needed
+            far_clip = self.drone_distance + 1
 
+            tan_half_fov = math.tan(fov / 2)
+            near_height = 2 * near_clip * tan_half_fov
+            near_width = near_height * aspect_ratio
+            far_height = 2 * far_clip * tan_half_fov
+            far_width = far_height * aspect_ratio
+
+            vertices = np.array([
+                [near_width / 2, near_height / 2, -near_clip],
+                [-near_width / 2, near_height / 2, -near_clip],
+                [-near_width / 2, -near_height / 2, -near_clip],
+                [near_width / 2, -near_height / 2, -near_clip],
+                [far_width / 2, far_height / 2, -far_clip],
+                [-far_width / 2, far_height / 2, -far_clip],
+                [-far_width / 2, -far_height / 2, -far_clip],
+                [far_width / 2, -far_height / 2, -far_clip]
+            ])
+
+            # Create PyVista mesh
+            faces = np.hstack(
+                [
+                    [4, 0, 1, 2, 3],
+                    [4, 4, 5, 6, 7],
+                    [4, 0, 4, 7, 3],
+                    [4, 1, 5, 6, 2],
+                    [4, 2, 6, 7, 3],
+                    [4, 0, 1, 5, 4],
+                ]
+            )
+            frustum_mesh = pv.PolyData(vertices, faces)
+
+            # Construct transformation matrix (combines rotation and translation)
+            pitch, yaw, roll = location[1]
+            translation_vector = np.array(location[0])
+
+            transformation_matrix = np.eye(4)
+            transformation_matrix[:3, 3] = translation_vector
+
+            frustum_mesh.rotate_x(pitch, inplace=True)
+            frustum_mesh.rotate_y(0, inplace=True)
+            frustum_mesh.rotate_z(yaw, inplace=True)
+            frustum_mesh.transform(transformation_matrix, inplace=True)
+
+            frustum_mesh.triangulate(inplace=True)
+
+            coverage_points = pv.PolyData(coverage_points)  # Convert NumPy array to PyVista PolyData
+
+            selection = coverage_points.select_enclosed_points(frustum_mesh)
+            points_in_selection = coverage_points.extract_points(
+                selection['SelectedPoints'].view(bool)
+            )
+            if points_in_selection.n_points == 0:
+                continue
+            for point in points_in_selection.points:
+                point_key = tuple(point)
+                if point_key in seen_points:
+                    seen_points[point_key] += 1
+                else:
+                    seen_points[point_key] = 1
+
+        points = np.array(list(seen_points.keys()))
+        counts = np.array(list(seen_points.values()))
+        max_count = max(counts)
+        normalized_counts = counts / max_count if max_count > 0 else counts  # Avoid division by zero
+        point_cloud = pv.PolyData(points)
+        point_cloud['counts'] = normalized_counts
+        boring_cmap = plt.cm.get_cmap("YlGn")
+
+        tplotter = pv.Plotter()
+        tplotter.add_mesh(self.original_mesh)
+        tplotter.add_mesh(point_cloud, scalars='counts', cmap=boring_cmap, point_size=15)
+        tplotter.show()
 
     def check_for_camerapos_to_close_to_3dmodel(self, point, mesh, min_distance):
         # This checks for collision using raytrace in a star formation, This is a fast method to check for any intersections
