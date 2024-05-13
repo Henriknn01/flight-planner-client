@@ -441,6 +441,33 @@ class SliceSurfaceAlgo:
         with open(file_path, 'w') as file:
             for p in points:
                 file.write(f"[{p.gps_position.get_lat()}, {p.gps_position.get_long()}], {p.get_altitude(self.reference_points[0], self.reference_points[1])}\n")
+            file.close()
+
+    def export_cameras_to_kml_file(self, cameras, collision_move, file_path):
+        # TOOO: Implement method that writes the flight path to a drone readable file
+        self.logger.debug("Writing camera positins to kml file")
+        # Exports the list with gps pos and angles to a txt file
+        points = []
+        i = 0
+        for position, euler_angles in cameras:
+            p = PathPoint(position[0], position[1], position[2])
+            gps_pos = p.get_gps_pos_from_reference_points(self.reference_points[0],
+                                                          self.reference_points[1],
+                                                          self.reference_points[2])
+            p.set_lat(gps_pos.get_lat()), p.set_long(gps_pos.get_long())
+            points.append(p)
+        with open(file_path, 'w') as file:
+            file.write('<?xml version="1.0" encoding="UTF-8"?>'
+                       '<kml xmlns="http://www.opengis.net/kml/2.2">'
+                       '<Document>')
+            for p in points:
+                file.write(f"<Placemark><name>Flight path point: {i}</name>"
+                           f"<Point>"
+                           f"<coordinates>{p.gps_position.get_long()}, {p.gps_position.get_lat()}, 0</coordinates>"
+                           f"</Point></Placemark>")
+                i += 1
+            file.write('</Document></kml>')
+            file.close()
 
 
 
@@ -666,6 +693,9 @@ class SliceSurfaceAlgo:
 
     def export_to_gps_file(self, file_path: str):
         self.export_cameras_to_flight_file(self.tsp_path_with_rotation, self.collisions, file_path[0]+".txt")
+
+    def export_to_kml_file(self, file_path: str):
+        self.export_cameras_to_kml_file(self.tsp_path_with_rotation, self.collisions, file_path[0]+".kml")
 
     def generate_path(self, mesh, original_mesh, reference_points):
         self.mesh = mesh

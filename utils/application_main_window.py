@@ -53,6 +53,7 @@ class ApplicationMainWindow(MainWindow):
         fileMenu = mainMenu.addMenu('File')
         export = fileMenu.addAction('Export to simulator', self.export_to_sim_file)
         export_gps = fileMenu.addAction('Export gps data', self.export_to_gps_file)
+        export_gps = fileMenu.addAction('Export to kml', self.export_to_kml_file)
         exitButton = QAction('Exit', self)
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
@@ -69,9 +70,14 @@ class ApplicationMainWindow(MainWindow):
             self.generatePage.mainPanelWidgetInstance.algo.export_to_sim_file(fileName)
 
     def export_to_gps_file(self):
-        fileName = QFileDialog.getSaveFileName(self, 'Save path to simulator file', '/', selectedFilter='*.txt')
+        fileName = QFileDialog.getSaveFileName(self, 'Save path to gps file', '/', selectedFilter='*.txt')
         if fileName:
             self.generatePage.mainPanelWidgetInstance.algo.export_to_gps_file(fileName)
+
+    def export_to_kml_file(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save path to kml file', '/', selectedFilter='*.txt')
+        if fileName:
+            self.generatePage.mainPanelWidgetInstance.algo.export_to_kml_file(fileName)
 
     def handleDataReceived(self, data):
         print(data)
