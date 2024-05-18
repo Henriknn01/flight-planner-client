@@ -100,6 +100,7 @@ class SliceSurfaceAlgo:
         self.tsp_path_with_rotation = None
 
     def calculate_look_at_euler_angles(self, camera_position, target_position):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         direction = np.array(camera_position) - np.array(target_position)
         direction /= np.linalg.norm(direction)
 
@@ -132,6 +133,8 @@ class SliceSurfaceAlgo:
         # then find the local minimum upwards thats the end of bulb
         # then find where its higher then local minimum downwards thats the end of the other side
         # thus we find center in y direction aswell.
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
+
         bulbus_hull_rays = []
         best_distance = 10000
         improved = True
@@ -178,6 +181,7 @@ class SliceSurfaceAlgo:
 
     def find_optimal_location_for_picture(self, multi_block, horizontal_spacing, vertical_spacing, distance, z_min_filter,
                                           z_max_filter, min_distance, camera_specs, scan_height):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
         z_res = (self.mesh.length / (horizontal_spacing / 0.8))
         v_res = ((abs(x_min) + x_max) / (vertical_spacing / 2.2))
@@ -297,6 +301,7 @@ class SliceSurfaceAlgo:
         return cameras
 
     def rotation_from_angles(self, angles):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         pitch, yaw, roll = np.radians(angles)
 
         # Create rotation matrices for each axis
@@ -325,6 +330,7 @@ class SliceSurfaceAlgo:
         return R
 
     def direction_vector_calculation(self, camera_rotation):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         # Assuming the FOV is both horizontal and vertical
         x_span = np.tan(np.radians(self.camera_specs["fov"] / 2)) * (
                     self.camera_specs["h_resolution"] / self.camera_specs["v_resolution"])
@@ -347,6 +353,7 @@ class SliceSurfaceAlgo:
         directions = directions @ rotation_matrix.T
 
     def calculate_covrage(self, camera_specs, picture_locations, z_min_filter, z_max_filter, distance):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         coverage_points = []
         seen_points = {}
         x_min, x_max, y_min, y_max, z_min, z_max = self.mesh.bounds
@@ -452,6 +459,7 @@ class SliceSurfaceAlgo:
         tplotter.show()
 
     def check_for_camerapos_to_close_to_3dmodel(self, point, mesh, min_distance):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         # This checks for collision using raytrace in a star formation, This is a fast method to check for any intersections
         # where we shoot a ray out in most directions and checks for a intersect in the min distance value
         # It returns true if there is an intersections, and false if there is no intersection
@@ -478,6 +486,7 @@ class SliceSurfaceAlgo:
         return False
 
     def calculate_spacing_by_cam_spec(self, camera_specs, distance, overlap_amount):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         # Calculates the horizontal and vertical distances based on the camera specs, this gives us the
         # Cylynder stucture points to raytrace from
         fov = camera_specs["fov"]
@@ -490,6 +499,7 @@ class SliceSurfaceAlgo:
         return horizontal_distance - overlap_amount, vertical_distance - overlap_amount
 
     def export_cameras_to_file(self, cameras, collision_move, file_path):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         self.logger.debug("Writing camera positins to file")
         # Exports the list with pos and angles to a txt file
         i = 0
@@ -508,10 +518,12 @@ class SliceSurfaceAlgo:
         pass
 
     def euclidean_distance(self, point1, point2):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         # do normal lingalg to get distance between points
         return math.sqrt(sum((x - y) ** 2 for x, y in zip(point1, point2)))
 
     def find_closest_node(self, target, nodes_with_rotation):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         """Find the closest node to the given target point."""
         closest_index = None
         min_distance = float('inf')
@@ -523,6 +535,7 @@ class SliceSurfaceAlgo:
         return closest_index
 
     def tsp_with_weight_calculation(self, points_with_rotation, x_penalty, z_factor, multi_block, start_point=None):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         visited = set()  # Keep track of visited nodes
         path_indices = []
         collisions = []
@@ -618,6 +631,7 @@ class SliceSurfaceAlgo:
         return path, collision_index
 
     def check_for_collisions(self, point1, point2, multi_block):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         # Chjeck if there are any intersections between two points using ray tracing
         # Returns true if there is an intersections, and false if not.
         intersections = self.original_mesh.ray_trace(point1, point2)[0]
@@ -655,6 +669,7 @@ class SliceSurfaceAlgo:
         return startpos
 
     def get_optional_nodes_from_model(self, bounds):
+        # AI DISCLAIMER: Some sections of this code is AI generated, or used AI aid
         rotation = [90, 0, 0]  # Use a list for rotation
         # Create linear spaces for x and y dimensions
         # x_min, x_max, y_min, y_max, z_min, z_max = bounds
